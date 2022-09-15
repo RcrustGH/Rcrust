@@ -1,0 +1,83 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Trace elements concentrations for a batch process</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for BatchPM {GCDmodel}"><tr><td>BatchPM {GCDmodel}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Trace elements concentrations for a batch process</h2>
+
+<h3>Description</h3>
+
+<p>More commonly used for batch melting, but does actually also work with crystalization.
+Make sure to use the same mineral/element names in all the variables
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+BatchPM(kd, c0, pm, cmins = matrix(), min.props, melt.arg = list(),
+  dont = character(0))
+</pre>
+
+
+<h3>Arguments</h3>
+
+<table summary="R argblock">
+<tr valign="top"><td><code>kd</code></td>
+<td>
+<p>Named matrix. Partition coefficients</p>
+</td></tr>
+<tr valign="top"><td><code>c0</code></td>
+<td>
+<p>Named vector. The composition of the source</p>
+</td></tr>
+<tr valign="top"><td><code>pm</code></td>
+<td>
+<p>Scalar. Degree of partial melting (0-100)</p>
+</td></tr>
+<tr valign="top"><td><code>cmins</code></td>
+<td>
+<p>Matrix. Composition of minerals (not used, for consistency)</p>
+</td></tr>
+<tr valign="top"><td><code>min.props</code></td>
+<td>
+<p>Named vector. Mineral proportions (normalized to 1)</p>
+</td></tr>
+<tr valign="top"><td><code>melt.arg</code></td>
+<td>
+<p>List. Further useful arguments (mostly used for correction modules, kept here for consistency)</p>
+</td></tr>
+<tr valign="top"><td><code>dont</code></td>
+<td>
+<p>Character vectors. Do not calculate for these elements. Not used here, kept for consistency (mostly used in correction modules)</p>
+</td></tr>
+</table>
+
+
+<h3>Value</h3>
+
+<p>list containing the following slots:
+</p>
+
+<ul>
+<li> <p><code>cL</code> Named vector. Composition of the liquid
+</p>
+</li>
+<li> <p><code>cmins</code> Named matrix. Composition of all individual solid mineral phases
+</p>
+</li>
+<li> <p><code>cS</code> Named vector. Composition of the whole solid
+</p>
+</li>
+<li> <p><code>kd</code> Named matrix. The Kd table, here similar to the input (included for consistency with other modelling routines)
+</p>
+</li>
+<li> <p><code>DD</code> Named vector. The D (bulk distribution) values.
+</p>
+</li></ul>
+
+
+<hr /><div style="text-align: center;">[Package <em>GCDmodel</em> version 0.4.7 <a href="00Index.html">Index</a>]</div>
+</body></html>

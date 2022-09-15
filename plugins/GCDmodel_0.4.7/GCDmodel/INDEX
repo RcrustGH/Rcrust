@@ -1,0 +1,24 @@
+.sanitize               Sanitize objects that should be one (numeric)
+                        line typically mineral proportions or C0 Make
+                        sure it's a vector Remove NA's Normalize to
+                        specified value
+BatchPM                 Trace elements concentrations for a batch
+                        process
+BatchPMOKZ              Trace elements concentrations for a batch
+                        process
+DummyPM                 Test function
+correctMnzSat           Correction for monazite saturation, Montel 1992
+                        w. elements partitionning
+correctMnzSatOKZ        Correction for monazite saturation, Montel 1992
+                        w. elements partitionning
+correctZrnSat           Correction for zircon saturation, Watson &
+                        Harrison 1983
+correctZrnSatOKZ        Correction for zircon saturation, Watson &
+                        Harrison 1983
+kd.table                Read a tab-separated file containing Kd values
+                        and convert it into a properly formatted table
+ppxCleanKdTable         Prepare a Kd table for use with perplex models:
+                        Create multiple rows for duplicate phases
+                        (min_1 min_2 etc) Add rows with zeros for
+                        missing phases Replace NA's by zeros NB keep
+                        all Kds including phases not in perplex file

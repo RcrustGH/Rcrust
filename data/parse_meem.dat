@@ -1,0 +1,87 @@
+C:/Rcrust/data/hp11ver_686.dat     thermodynamic data file
+no_print | print generates print output
+no_plot     | no_plot suppresses plot output
+C:/Rcrust/data/solution_model_686.dat     solution model file, blank = none
+parse_meem
+C:/Rcrust/data/perplex_option_686.dat     computational option file
+    5 calculation type: 0 - composition, 1 - Schreinemakers, 3 - Mixed, 4 - gwash, 5 - gridded min, 7 - 1d fract, 8 - gwash 9 - 2d fract, 10 - 7 w/file input
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 number component transformations
+    19 number of components in the data base
+
+1 component amounts, 0 - molar, 1 weight
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 05
+    5 ifug EoS for saturated phase
+    2 gridded minimization dimension (1 or 2)
+    0 special dependencies: 0 - P and T independent, 1 - P(T), 2 - T(P)
+ 0.00000      0.00000      0.00000      0.00000      0.00000     Geothermal gradient polynomial coeffs.
+ 
+begin thermodynamic component list
+SIO2     1  69.7  0.00000  weight amount
+TIO2     1  0.28  0.00000  weight amount
+AL2O3     1  14.49  0.00000  weight amount
+FEO     1  2.15  0.00000  weight amount
+MNO     1  0.05  0.00000  weight amount
+MGO     1  0.7  0.00000  weight amount
+CAO     1  1.95  0.00000  weight amount
+NA2O     1  3.19  0.00000  weight amount
+K2O     1  3.32  0.00000  weight amount
+H2O     1  4  0.00000  weight amount
+end thermodynamic component list
+								
+begin saturated component list
+
+end saturated component list
+
+
+begin saturated phase component list
+
+end saturated phase component list
+
+
+begin independent potential/fugacity/activity list
+
+end independent potential list
+
+
+begin excluded phase list
+mic
+ilm
+f3clim
+ctdo
+end excluded phase list
+
+
+begin solution phase list
+Bi(W)
+Chl(W)
+Cpx(HP)
+Crd(W)
+Ctd(W)
+Ep(HP11)
+Fsp(C1)
+Gt(W)
+Ilm(WPH)
+melt(W)
+Mica(W)
+Opx(W)
+Sp(WPC)
+St(W)
+end solution phase list
+
+ 0.0000      0.0000     0.00000000  0.0000      0.0000     max p, t, xco2, u1, u2
+ 0.0000      0.0000     0.00000000  0.0000      0.0000     min p, t, xco2, u1, u2
+ 0.0000      0.0000     0.00000000  0.0000      0.0000     unused place holder post 06
+
+ 2  1  4  5  3   indices of 1st & 2nd independent & sectioning variables
+

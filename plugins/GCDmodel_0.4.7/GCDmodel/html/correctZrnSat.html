@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Correction for zircon saturation, Watson &amp; Harrison 1983</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for correctZrnSat {GCDmodel}"><tr><td>correctZrnSat {GCDmodel}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Correction for zircon saturation, Watson &amp; Harrison 1983</h2>
+
+<h3>Description</h3>
+
+<p>Correction for zircon saturation, Watson &amp; Harrison 1983
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+correctZrnSat(kd, c0, pm, cmins, min.props, melt.arg = list(),
+  dont = character(0))
+</pre>
+
+
+<h3>Arguments</h3>
+
+<table summary="R argblock">
+<tr valign="top"><td><code>kd</code></td>
+<td>
+<p>Named matrix. Partition coefficients. Must include Zircon (Zrn)</p>
+</td></tr>
+<tr valign="top"><td><code>pm</code></td>
+<td>
+<p>Scalar. Degree of partial melting (0-100)</p>
+</td></tr>
+<tr valign="top"><td><code>cmins</code></td>
+<td>
+<p>Matrix. Composition of minerals (not used, for consistency)</p>
+</td></tr>
+<tr valign="top"><td><code>min.props</code></td>
+<td>
+<p>Named vector. Mineral proportions (normalized to 1)</p>
+</td></tr>
+<tr valign="top"><td><code>melt.arg</code></td>
+<td>
+<p>List. Further useful arguments.
+Includes here the melt major elements (melt.arg$mjrs),trace (melt.arg$trc), temperature in KELVIN (melt.arg$TT)</p>
+</td></tr>
+<tr valign="top"><td><code>dont</code></td>
+<td>
+<p>Character vector. Do not calculate for these elements. Use to avoid overptinting previous saturation calc (i.e. if you use a saturation routine /after/ this one, )</p>
+</td></tr>
+</table>
+
+<hr /><div style="text-align: center;">[Package <em>GCDmodel</em> version 0.4.7 <a href="00Index.html">Index</a>]</div>
+</body></html>

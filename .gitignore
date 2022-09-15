@@ -1,0 +1,8 @@
+.httr-oauth
+Projects/
+_Projects/
+*.Rhistory
+.tmp_cmd
+.RData
+.DS_Store
+.Rapp.history

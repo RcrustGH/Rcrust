@@ -1,0 +1,14 @@
+Package: GCDmodel
+Type: Package
+Title: Modelling routines for GCDkit
+Version: 0.4.7
+Author: Jean-François Moyen
+Maintainer: Jean-François Moyen <jfmoyen@gmail.com>
+Description: A set of routines to calculate major and trace elements models
+    for the evolution of igneous rocks.
+    Based on GCDkit.
+License: CC
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.0
+Built: R 3.4.3; ; 2019-01-23 08:37:23 UTC; windows
