@@ -1,0 +1,88 @@
+###############
+#
+#   Rcrust input file
+#
+###############
+# Location of project files
+working_file<-"Example3"
+projects_directory<-"D:/Rcrust/Projects"
+
+###############
+#
+#   Size data
+#
+###############
+# number of points in x and y directions
+x_n<-19
+y_n<-11
+
+###############
+#
+#   PT data
+#
+###############
+pt_def<-"input"                         #input,file
+pt_definitions<-list("{1;1}_{19;11}"=c("12-(y_i-1)*0.3","660+(x_i-1)*10+150"))
+
+###############
+#
+#   Bulk composition data 
+#
+###############
+comp_transformations<-c("")
+bulk_def<-"input"                         #input,file
+major_elements<-c("NA2O","MGO","AL2O3","SIO2","K2O","CAO","TIO2","FEO","O2","H2O")
+set_oxygen_fugacity<-FALSE
+calculate_traces<-FALSE
+apply_trace_correction<-"None"
+kd_file<-""
+trace_elements<-c("")
+bulk_definitions<-c(list("{1;1}_{1;1}"=c("1.82","3.28","20.45","56.97","4.09","1.56","1.05","8.5","0.75","1.96","100"),"{2;1}_{19;1}"=c("rs{x_i-1;y_i}"),"{1;2}_{19;11}"=c("rs{x_i;y_i-1}")))
+bulk_file<-""
+
+###############
+#
+#   Phase addition
+#
+###############
+ph_add<-FALSE
+ph_add_definitions<-c("")
+
+###############
+#
+#   Phase extraction
+#
+###############
+ph_extr<-TRUE
+reequilibrate_steps<-FALSE
+ph_extr_definitions<-c(list("{1;1}_{19;11}"=c("condition"="ph{Melt,vol%}>=7","Melt"="retain{1;wt%}")))
+
+###############
+#
+#   Modelling Options
+#
+###############
+thermodynamic_data_file<-"hp11ver_686.dat"
+solution_models_file<-"solution_model_686.dat"
+meemum_path<-"meemum_686.exe"
+perplex_option_file<-"perplex_option_686.dat"
+use_sol_models<-c("Bi(W)","Cpx(HP)","Crd(W)","Ep(HP11)","Fsp(C1)","Gt(W)","Ilm(WPH)","melt(W)","Mica(W)","Opx(W)","Sp(WPC)","St(W)")
+saturated_components<-""
+saturated_phase_components<-""
+independent_potential_fugacity_activity<-""
+exclude_phases<-c("")
+calculate_activities<-FALSE
+G_pure_phases<-""
+print_meem<-FALSE
+export_meemum_output<-FALSE
+end_of_calc<-"Return to Interface"
+
+###############
+#
+#   Output Options
+#
+###############
+phase_aliases<-""
+PAM_compilation<-""
+compile_PAM<-""
+

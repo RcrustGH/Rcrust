@@ -1,0 +1,88 @@
+###############
+#
+#   Rcrust input file
+#
+###############
+# Location of project files
+working_file<-"Example_HGP"
+projects_directory<-"C:/Rcrust/Projects"
+
+###############
+#
+#   Size data
+#
+###############
+# number of points in x and y directions
+x_n<-1
+y_n<-1
+
+###############
+#
+#   PT data
+#
+###############
+pt_def<-"input"                         #input,file
+pt_definitions<-list("{1;1}_{1;1}"=c("3","950-2*(x_i-1)"))
+
+###############
+#
+#   Bulk composition data 
+#
+###############
+comp_transformations<-c("")
+bulk_def<-"input"                         #input,file
+major_elements<-c("Na2O","MgO","Al2O3","SiO2","K2O","CaO","TiO2","FeO","O2","H2O")
+set_oxygen_fugacity<-FALSE
+calculate_traces<-FALSE
+apply_trace_correction<-"None"
+kd_file<-""
+trace_elements<-c("")
+bulk_definitions<-c(list("{1;1}_{1;1}"=c("1.82","3.28","20.45","56.97","4.09","1.56","1.05","8.5","0.75","1.96","100")))
+bulk_file<-""
+
+###############
+#
+#   Phase addition
+#
+###############
+ph_add<-FALSE
+ph_add_definitions<-c("")
+
+###############
+#
+#   Phase extraction
+#
+###############
+ph_extr<-FALSE
+reequilibrate_steps<-FALSE
+ph_extr_definitions<-c("")
+
+###############
+#
+#   Modelling Options
+#
+###############
+thermodynamic_data_file<-"melt_HGP/hp633ver.dat"
+solution_models_file<-"melt_HGP/solution_model_689.dat"
+meemum_path<-"melt_HGP/meemum_689.exe"
+perplex_option_file<-"melt_HGP/perplex_option_689.dat"
+use_sol_models<-c("Bi(HGP)","Cpx(HGP)","Crd(HGP)","Ep(HP11)","Fsp(C1)","Gt(HGP)","Ilm(WPH)","melt(HGP)","Mica(W)","Opx(HGP)","St(W)")
+saturated_components<-""
+saturated_phase_components<-""
+independent_potential_fugacity_activity<-""
+exclude_phases<-c("cor")
+calculate_activities<-FALSE
+G_pure_phases<-""
+print_meem<-TRUE
+export_meemum_output<-FALSE
+end_of_calc<-"Return to Interface"
+
+###############
+#
+#   Output Options
+#
+###############
+phase_aliases<-""
+PAM_compilation<-""
+compile_PAM<-"FALSE"
+
