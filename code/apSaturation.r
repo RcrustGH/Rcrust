@@ -1,5 +1,4 @@
 #apSaturation.r written by Sean Hoffman, 2021-2022
-#Mod-tag: .wtd.add function should be taken out of this file and placed into a useful functions file
 #############################################
 #
 # Ancillary function to merge several lines (by mass)
@@ -28,7 +27,6 @@
 	rownames(foo)<-avname
 	return(foo)
 }
-#Mod-tag: calcACNK function should be taken out of this file and placed into a useful functions file
 #Coded by Sean Hoffman, 2021
 #General function to return the molar A/CNK ratio of comp.
 #Function accepts a vector object that must be named as component oxides (including Al2O3, CaO, Na2O, K2O), wt.% units
@@ -106,7 +104,6 @@ correctMnzSatStepanov <- function(press, temp, Cmelt, Xmz=0.83){
 }
 #correctApSat written by Sean Hoffman, 2021
 correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elements,override=FALSE,Old_P_Melt=0){
-#Mod-tag: Should change variable names to those used in description in Thesis/article.
 #Naming protocol:
 	#[Phase]_[Component] is the wt.% of [Component] in the [Phase]
 	#[Component]_[Phase] is the mass of [Component] in the [Phase]. Or wt.% of the component as a proportion of the bulk composition.
@@ -130,7 +127,6 @@ correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elem
 		} else if(apatite_saturation=="Wolf & London 1994"){
 			Melt_P <- correctApSatWolfLondon(Cmelt=calc_phases["Melt",major_elements])
 		}
-		#1.2
 		#Multiply Melt_P/100 by Melt wt% to get P2O5 wt% of bulk to saturate Melt with respect to apatite
 		P_Melt <-calc_phases["Melt","wt%"]*Melt_P/100
 	} else { #subsolidus. All P goes to apatite.
@@ -166,7 +162,6 @@ correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elem
 				P_Ap <- P_Bulk - P_Melt
 			}
 		}
-		#Mod-tag: should continue case be here? To skip calc_phases if apatite does not saturate at all?
 		#calculate required CaO for apatite
 		Ca_Ap <- P_Ap / propP2O5 * propCaO
 		if(!is.na(match("CaO",names(c0)))){Ca <- "CaO"}else{Ca <- "CAO"}
@@ -240,7 +235,6 @@ correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elem
 		}
 		c0 <- store_c0
 		counter <- counter + 1
-		# browser()
 	}
 	if(counter > 3){ final_P_Sat <- mid_P_Melt } else { final_P_Sat <- Old_P_Melt }
 	#This section partitions components to melt and/or adds apatite to calc_phases and formats it
@@ -308,8 +302,6 @@ correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elem
 		calc_phases["Ap","Density(kg/m3)"] <- 3190
 		calc_phases["Ap","mol"] <- aa[,"mass"]/(aa[,Ca]/100*56.0774 + aa[,"P2O5"]/100*141.9445)
 	}
-	# browser()
-	#floating point errors may accumulate, neatening output:
 	br <- which(rownames(calc_phases)=="Bulk_rs")-1
 	if(sum(calc_phases[1:br,"mass"])!=as.numeric(c0["mass"])){
 		calc_phases[1:br,"mass"] <- calc_phases[1:br,"mass"]/sum(calc_phases[1:br,"mass"])*c0["mass"]
@@ -326,9 +318,7 @@ correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elem
 	#mol%
 	calc_phases[1:br,"mol%"] <- calc_phases[1:br,"mol"]/sum(calc_phases[1:br,"mol"])*100
 	calc_phases["Bulk_rs","mol%"] <- 100
-	#Mod-tag: renaming feldspars. Might be useful to make it into a function since feldspars need to renamed
-		#at multiple points due to recalling meemum.
-		#Need all_elements, calc_phases. Return calc_phases.
+	#renaming feldspars. 
 	if(length(intersect(toupper(all_elements),c("CAO","K2O")))==2){
 		split_names<-strsplit(rownames(calc_phases),"_","")
 		first_names<-NULL
@@ -383,239 +373,9 @@ correctApSat <- function(c0,temp,press,calc_phases,apatite_saturation,major_elem
 	}
 	return(calc_phases)
 }
-correctApMnzSat <- function(c0,kd,temp,press,calc_phases,apatite_saturation,major_elements,mz_cL,min.props,cmins,melt.arg,dont) {
-#Code for calculating distribution of P and LREE between melt/apatite/monazite
-#Mod-tag: There is no subsolidus routine. For apatite alone, we assume that all P is in apatite. We probably can't assume this for Ap-Mnz routine.
-#Mod-tag: isolating calcium makes the function un-detachable from Rcrust. Can make a more basic function that does not isolate calcium.
-#First need to find Ap saturation value. For now, not going to isolate components to form Ap & Mnz to keep same equilibrium from start.
-	#Not isolating or accounting for Ca-in-apatite has some effect on phase stabilities, mostly at points just above solidus. Otherwise it 
-		#has a slight affect on plagioclase feldspar mode and composition.
-	if(apatite_saturation=="Harrison & Watson 1984"){
-		P_Sat <- correctApSatHW(Cmelt=calc_phases["Melt",major_elements],
-			temp+273.15)
-	} else if(apatite_saturation=="H&W with Bea et al. 1992"){
-		P_Sat <- correctApSatBea(Cmelt=calc_phases["Melt",major_elements],
-			temp+273.15)
-	} else if(apatite_saturation=="H&W with Pichavant et al. 1992"){
-		P_Sat <- correctApSatPich(Cmelt=calc_phases["Melt",major_elements],
-			temp+273.15)
-	} else if(apatite_saturation=="Wolf & London 1994"){
-		P_Sat <- correctApSatWolfLondon(Cmelt=calc_phases["Melt",major_elements])
-	}
-	#Multiply Melt_P/100 by Melt wt% to get P2O5 wt% of bulk to saturate Melt
-	#P_Melt <-calc_phases["Melt","wt%"]*Melt_P/100
-# browser()
-#LREE are La, Ce, Pr, Nd, Pm, Sm, Gd
-#P is worked with as P2O5 wt%
-#LREE_Sat is the sum concentration of LREE in LREE saturated Melt (ppm)
-	#LREE_Sat is first calculated from a monazite saturation equation, such as Montel, (1993), or Stepanov et al., (2012).
-	#in run.Rcrust.R, monazite saturation function returns the trace concentration of the liquid, mz$cL.
-	#The sum of LREE can be calculated from this variable, assuming we used Montel, (1993) and not Stepanov et al., (2012).
-#P_Sat is the saturation concentration of phosphorus in melt.
-	#P_Sat is calculated by apatite saturation equations such as Harrison & Watson, (1984) and others
-	#Yakymchuck, (2017) uses Wolf and London (1994). Wolf and London (1994) produces similar results to Pichavant et al. (1992).
-#Ap_LREE is a fixed calculation of the concentration of LREE in apatite (ppm)
-	#To calculate Ap_LREE, a partition coefficient of LREE for apatite/melt is needed. D_ApMelt_LREE
-	#Yakymchuck, (2017) uses 10, the average partition coefficient of Prowatke & Klemme, (2006), for La partitioning between apatite/melt with concentrations of SiO2.
-	#It seems ideal to be able to enter a partition coefficient value then, and perhaps an option to automatically calculate it from the K-d file.
-	#For granites the value would be an average of 11.9(1.9) & 8.0(1.7). D_ApMelt_LREE equal to 9.95
-#LREE_Mnz is the sum of LREE in Mnz (ppm).
-	#LREE_Mnz is intitially set to LREE_Bulk. After 4th step in iteration loop, the new value is passed onto next loop.
-#LREE_Melt is the sum of LREE in Melt (ppm)
-	#Set to LREE_Sat which is calculated from monazite saturation equations.
-#P_Bulk is the total P2O5 wt% of bulk.
-	#This is passed to function from c0 or trace elements.
-#Mnz_P and Mnz_LREE are fixed stoichiometry of 29 wt.% P2O5 : 566794 ppm LREE in Mnz
-#Ap_P is a fixed stoichiometry of P2O5 in apatite, 41 wt%.
-	LREE_names <- c("Th", "La", "Ce", "Pr", "Nd", "Sm", "Gd")
-	LREE_Sat <- sum(mz_cL[LREE_names])	#ppm
-	LREE_Melt <- LREE_Sat	#ppm
-	D_ApMelt_LREE <- 9.95
-	Ap_LREE <- D_ApMelt_LREE*LREE_Melt	#ppm
-	#LREE_Mnz is first set to the sum of LREE of the Bulk.
-	LREE_Bulk <- sum(c0[LREE_names])	#ppm
-	LREE_Mnz <- LREE_Bulk	#ppm
-	P_Bulk<-c0[["P2O5"]]	#wt% (P2O5)
-	Mnz_P <- 29	#wt%
-	Mnz_LREE <- 566794	#ppm
-	Ap_P <- 41	#wt%
-	Ap_Ca <- 54 #wt%
-# browser()
-#If LREE_Mnz takes all LREE, exit iteration.
-	cum_LREE_Mnz <- c()
-	i <- 1
-####
-# browser()
-##Mod-tag: this section is affected by LREE_Sat, calculated by Montel '93 equation.
-	repeat{
-		P_Mnz <- Mnz_P/Mnz_LREE * LREE_Mnz
-		if(P_Mnz >= P_Bulk) {
-			#Set P_Mnz to max P available
-			P_Mnz <- P_Bulk
-			#Reduce LREE_Mnz to match P_Mnz
-			LREE_Mnz <- P_Mnz*Mnz_LREE/Mnz_P
-		}
-		P_Ap <- P_Bulk - P_Mnz
-		LREE_Ap <- Ap_LREE / Ap_P * P_Ap
-		LREE_Mnz <- LREE_Bulk - LREE_Ap
-		cum_LREE_Mnz <- c(cum_LREE_Mnz, LREE_Mnz)
-		if(i > 1 && abs((cum_LREE_Mnz[i]-cum_LREE_Mnz[i-1])/cum_LREE_Mnz[i]*100) < 0.01) {
-			break
-		}
-		if(i > 5) {print("was >5"); print(abs((cum_LREE_Mnz[i]-cum_LREE_Mnz[i-1])/cum_LREE_Mnz[i]*100)); break}
-		i <- i + 1
-	}
-# browser()
-#P saturation is controlled by Ap. LREE saturation is controlled by Mnz.
-	Ap_Diss <- P_Sat / P_Ap * calc_phases["Melt","wt%"]/100
-	Mnz_Diss <- LREE_Sat / LREE_Mnz * calc_phases["Melt","wt%"]/100
-
-	Ap_DissPct <- (P_Sat / (P_Ap + (Mnz_Diss * P_Mnz))) * calc_phases["Melt","wt%"]
-	Mnz_DissPct <- (LREE_Sat / (LREE_Mnz + (Ap_Diss * LREE_Ap))) * calc_phases["Melt","wt%"]
-# browser()
-	if(any(rownames(calc_phases)=="Melt")){
-		# last_major <- which(colnames(calc_phases)==major_elements[length(major_elements)])
-		# Add P2O5 column to calc_phases
-		# aa <- matrix(0,nrow(calc_phases),1)
-		# colnames(aa) <- "P2O5"
-		# calc_phases <- cbind(cbind(calc_phases[,1:last_major],aa),calc_phases[,(last_major+1):ncol(calc_phases)])
-		Ap <- matrix(0, nrow = 1, ncol = 3)
-		colnames(Ap) <- c("P2O5","LREE (ppm)","mass")
-		rownames(Ap) <- "Ap"
-		Ap[,"P2O5"] <- 41
-		Ap[,"LREE (ppm)"] <- Ap_LREE
-		Ap[,"mass"] <- P_Ap/41*100
-		#Mod-tag: CaO = 54%, not included within phase but considered for total mass.
-		#Mod-tag: Would have to isolate from c0 and redo calculations to include CaO as a component in Ap.
-		Mnz <- matrix(0, nrow = 1, ncol = 3)
-		colnames(Mnz) <- c("P2O5","LREE (ppm)","mass")
-		rownames(Mnz) <- "Mnz"
-		Mnz[,"P2O5"] <- Mnz_P
-		Mnz[,"LREE (ppm)"] <- Mnz_LREE
-		Mnz[,"mass"] <- P_Mnz/Mnz[,"P2O5"]*100
-		# browser()
-		#combined is used to calculate the proportions of Ap and Mnz for melt.
-		combined <- rbind(Ap,Mnz)
-		if (Ap_Diss >= 1){
-			Ap_Diss <- 1
-		}
-		combined["Ap","mass"] <- combined["Ap","mass"]*Ap_Diss
-		Ap[,"mass"] <- Ap[,"mass"] - combined["Ap","mass"]
-		if (Mnz_Diss >= 1){
-			Mnz_Diss <- 1
-		}
-		combined["Mnz","mass"] <- combined["Mnz","mass"]*Mnz_Diss
-		Mnz[,"mass"] <- Mnz[,"mass"] - combined["Mnz","mass"]
-		melt <- .wtd.add(combined)
-		# colnames(melt) <- c("P2O5","LREE (ppm)","mass")
-		rownames(melt) <- "melt"
-		#Mod-tag: everything beyond this point could be moved into run.Rcrust.R. Then the function could be called and be independent of Rcrust.
-			#Would need to return Ap, Mnz, melt as a list.
-		#Formatting of calc_phases before trace elements are partitioned.
-		# browser()
-		br <- which(rownames(calc_phases)=="Bulk_rs")
-		last_major <- which(colnames(calc_phases)==major_elements[length(major_elements)])
-		#Add P2O5 column to calc_phases
-		aa <- matrix(0,nrow(calc_phases),1)
-		colnames(aa) <- "P2O5"
-		calc_phases <- cbind(cbind(calc_phases[,1:last_major],aa),calc_phases[,(last_major+1):ncol(calc_phases)])
-		calc_phases[1:br-1,"mass"] <- calc_phases[1:br-1,"mass"]/sum(calc_phases[1:br-1,"mass"]) * (100 - sum(Ap[,"mass"], Mnz[,"mass"], melt[,"mass"]))
-		calc_phases["Bulk_rs",major_elements] <- calc_phases["Bulk_rs",major_elements]/sum(calc_phases["Bulk_rs",major_elements]) * (100 - c0["P2O5"])
-		if(Ap_Diss != 1 || Ap[,"mass"] != 0){
-			#Adds phase, apatite "Ap", to calc_phases.
-			aa <- matrix(0,nrow = 1, ncol(calc_phases))
-			colnames(aa) <- colnames(calc_phases)
-			rownames(aa) <- "Ap"
-			#Mod-tag: CaO 54 wt% is not isolated from bulk composition, remains in other phases. There is an empty mass for it in apatite
-			# if(!is.na(any(match(major_elements,"CaO")))) { Ca <- "CaO" } else { Ca <- "CAO"}
-			# aa[,Ca] <- 54
-			aa[,"P2O5"] <- Ap[,"P2O5"]
-			aa[,"mass"] <- Ap[,"mass"]
-			br <- which(rownames(calc_phases)=="Bulk_rs")
-			#there is an unaccounted-for mass of calcium that remains in phases other than apatite. The total mass of apatite includes the calcium portion and the mass of possible OH/Cl/F which can not be handled currently.
-			calc_phases <- rbind(rbind(calc_phases[1:br-1,],aa),calc_phases[br:nrow(calc_phases),,drop=FALSE])
-			last_major <- which(colnames(calc_phases)=="P2O5")
-			calc_phases["Ap",(last_major+1):length(aa)]<-NaN
-			#Average value of Ap density used to estimate vol%
-			calc_phases["Ap","Density(kg/m3)"] <- 3190
-			#mol of Ap is not a precise calculation as the density is estimated and the third site of F/Cl/OH is not included.
-			calc_phases["Ap","mol"] <- calc_phases["Ap","mass"]/(54/100*56.0774 + 41/100*141.9445)
-		}
-		#Only add Mnz if it saturates
-		if(Mnz_Diss != 1 || Mnz[,"mass"] != 0){
-			#Adds phase, apatite "Mnz", to calc_phases.
-			aa <- matrix(0,nrow = 1, ncol(calc_phases))
-			colnames(aa) <- colnames(calc_phases)
-			rownames(aa) <- "Mnz"
-			aa[,"P2O5"] <- Mnz[,"P2O5"]
-			aa[,"mass"] <- Mnz[,"mass"]
-			#Mod-tag: LREE are partitioned using kd values. This does not necessarily equate to the assumed stoichiometry of 566794 ppm
-			br <- which(rownames(calc_phases)=="Bulk_rs")
-			calc_phases <- rbind(rbind(calc_phases[1:br-1,],aa),calc_phases[br:nrow(calc_phases),,drop=FALSE])
-			calc_phases["Mnz",(last_major+1):length(aa)]<-NaN
-			#not feasible to calculate mol of Mnz as it is largely made up of LREE. Will have insignificant effect on mol% of rock-forming phases.
-			#Average value of Mnz density used to estimate vol%
-			calc_phases["Mnz","Density(kg/m3)"] <- 5100
-			calc_phases["Mnz","mol"] <- 0
-		}
-		aa <- matrix(0,nrow = 1, ncol(calc_phases))
-		colnames(aa) <- colnames(calc_phases)
-		rownames(aa) <- "melt"
-		aa[,"P2O5"] <- melt[,"P2O5"]
-		aa[,"mass"] <- melt[,"mass"]
-		calc_phases["Melt",] <- .wtd.add(rbind(aa,calc_phases["Melt",]))
-		calc_phases["Bulk_rs","P2O5"] <- c0["P2O5"]
-		#Total masses of phases and components balance out if the empty mass of Ap, Mnz, melt is accounted for.
-		#total mass + Ap[,"mass"]*0.59 + Mnz[,"mass"]*0.71 + melt[,"mass"]*(1-melt[,"P2O5"]/100)
-		#formatting of output
-		br <- which(rownames(calc_phases)=="Bulk_rs")
-		#Fixing wt%
-		calc_phases[1:br-1,"wt%"] <- calc_phases[1:br-1,"mass"]/sum(calc_phases[1:br-1,"mass"])*100
-		calc_phases["Bulk_rs","wt%"] <- 100
-		#Fixing vol%
-		volume <- calc_phases[1:br-1,"mass"]/calc_phases[1:br-1,"Density(kg/m3)"]
-		calc_phases[1:br-1,"vol%"] <- volume/sum(volume)*100
-		calc_phases["Bulk_rs","vol%"] <- 100
-		#Fixing mol%
-		calc_phases[1:br-1,"mol%"] <- calc_phases[1:br-1,"mol"]/sum(calc_phases[1:br-1,"mol"])*100
-		calc_phases["Bulk_rs","mol%"] <- 100
-		calc_phases[1:br,1:which(colnames(calc_phases) == "mol")] <- round(calc_phases[1:br,1:which(colnames(calc_phases) == "mol")],4)
-		min.props<-calc_phases[c(-which(rownames(calc_phases)=="Melt"),
-									-which(rownames(calc_phases)=="Bulk_rs")),"wt%"]
-		bpm <- BatchPM(kd = kd, c0=c0[1:length(c0)-1], pm = calc_phases["Melt","wt%"], min.props = min.props)
-		# browser()
-		#add trace element data to calc_phases
-		trace_mat<-matrix(NA,nrow(calc_phases),length(trace_elements)-1)
-		colnames(trace_mat)<-trace_elements[-which(trace_elements=="P2O5")]
-		rownames(trace_mat)<-rownames(calc_phases)
-		trace_mat["Melt",]<-bpm$cL
-		trace_mat["Bulk_rs",]<-c0[trace_elements[-which(trace_elements=="P2O5")]]
-		for(ph in rownames(bpm$cmins)){
-			trace_mat[ph,]<-bpm$cmins[ph,]
-		}
-		#add in trace elements after majors
-		last_major<-which(colnames(calc_phases)=="P2O5")
-		calc_phases<-cbind(cbind(calc_phases[,1:last_major],trace_mat),
-						calc_phases[,(last_major+1):ncol(calc_phases)])
-		#Mod-tag: How does LREE get trasferred to melt? Need to have specific LREE trace values to be able to transfer to melt
-		#... Ap[LREE]
-	}
-	# print(paste0("Press ",press,"\n"))
-	# print(paste0("Ap_Diss ",Ap_Diss,"\n"))
-	# print(paste0("Mnz_Diss ",Mnz_Diss,"\n"))
-	# print(paste0("Ap_DissPct ",Ap_DissPct,"\n"))
-	# print(paste0("Mnz_DissPct ",Mnz_DissPct,"\n"))
-	# return(paste0("Temp ",temp,"\n","Press ",press,"\n","Ap_Diss ",Ap_Diss,"\n","Mnz_Diss ",Mnz_Diss,"\n","Ap_DissPct ",Ap_DissPct,"\n","Mnz_DissPct ",Mnz_DissPct,"\n"))
-	# printthis <- paste0("Temp ",temp,"\n","Press ",press,"\n","Ap_Diss ",Ap_Diss,"\n","Mnz_Diss ",Mnz_Diss,"\n","Ap_DissPct ",Ap_DissPct,"\n","Mnz_DissPct ",Mnz_DissPct,"\n")
-	# return(printthis)
-	#Mod-tag: It might be more useful to return an object other than calc_phases so that the function could be used universally and manipulated without being attached to Rcrust. Calc_phases could then be formatted in run.Rcrust.
-	return(calc_phases)
-}
 #correctApMnzSatWithCa written by Sean Hoffman, 2022
 correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturation,major_elements,Xmz) {
 #Code for calculating distribution of P and LREE between melt/apatite/monazite, Ca to apatite.
-#Mod-tag: There is no subsolidus routine. For apatite alone, we assume that all P is in apatite. We probably can't assume this for Ap-Mnz routine.
-#Mod-tag: isolating calcium makes the function un-detachable from Rcrust. Can make a more basic function that does not isolate calcium.
 	LREE_Sat <- correctMnzSatStepanov(press=press, temp=(temp+273.15), Cmelt=calc_phases["Melt",], Xmz=Xmz)
 	if(apatite_saturation=="Harrison & Watson 1984"){
 		P_Sat <- correctApSatHW(Cmelt=calc_phases["Melt",major_elements],
@@ -631,13 +391,10 @@ correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturatio
 	}
 #LREE are La, Ce, Pr, Nd, Pm, Sm, Gd
 #P is worked with as P2O5 wt%
-#LREE_Sat is the sum concentration of LREE in LREE saturated Melt (ppm)
-	#LREE_Sat is first calculated from a monazite saturation equation, such as Montel, (1993), or Stepanov et al., (2012).
-	#in run.Rcrust.R, monazite saturation function returns the trace concentration of the liquid, mz$cL.
-	#The sum of LREE can be calculated from this variable, assuming we used Montel, (1993) and not Stepanov et al., (2012).
-#P_Sat is the saturation concentration of phosphorus in melt. Could be named Melt_P, but kept to name used in Yakymchuck, (2017).
-	#P_Sat is calculated by apatite saturation equations such as Harrison & Watson, (1984) and others
-	#Yakymchuck, (2017) uses Wolf and London (1994). Wolf and London (1994) produces similar results to Pichavant et al. (1992).
+#LREE_Sat is the sum concentration of LREE in LREE saturated Melt (ppm) 
+	#from a monazite saturation equation, such as Montel, (1993), or Stepanov et al., (2012).
+#P_Sat is the saturation concentration of phosphorus in melt. naming consistent with Yakymchuck, (2017).
+	#P_Sat is calculated by apatite saturation equations such as Harrison & Watson, (1984)
 #Ap_LREE is a fixed calculation of the concentration of LREE in apatite (ppm)
 	#To calculate Ap_LREE, a partition coefficient of LREE for apatite/melt is needed. D_ApMelt_LREE
 	#Yakymchuck, (2017) uses 10, the average partition coefficient of Prowatke & Klemme, (2006), for La partitioning between apatite/melt with concentrations of SiO2.
@@ -645,13 +402,11 @@ correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturatio
 	#LREE_Mnz is intitially set to LREE_Bulk. After 4th step in iteration loop, the new value is passed onto next loop.
 #LREE_Melt is the sum of LREE in Melt (ppm)
 	#Set to LREE_Sat which is calculated from monazite saturation equations.
-#P_Bulk is the total P2O5 wt% of bulk.
+#P_Bulk is the total P2O5 wt% of bulk composition.
 	#This is passed to function from c0 or trace elements.
 #Mnz_P and Mnz_LREE are fixed stoichiometry of 29 wt.% P2O5 : 566794 ppm LREE in Mnz
 #Ap_P is a fixed stoichiometry of P2O5 in apatite, 41 wt%.
-	# LREE_names <- c("Th", "La", "Ce", "Pr", "Nd", "Sm", "Gd")
 	LREE_names <- c("La", "Ce", "Pr", "Nd", "Sm")
-	# LREE_Sat <- sum(mz_cL[LREE_names])	#ppm
 	D_ApMelt_LREE <- 10
 	#LREE_Mnz is first set to the sum of LREE of the Bulk.
 	LREE_Bulk <- sum(c0[LREE_names])	#ppm
@@ -814,9 +569,6 @@ correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturatio
 		Mnz[,"mass"] <- Mnz[,"mass"] - combined["Mnz","mass"] }
 		melt <- .wtd.add(combined)
 		rownames(melt) <- "melt"
-		#Mod-tag: everything beyond this point could be moved into run.Rcrust.R or a trace element partitioning function
-		#Then the function could be called and be independent of Rcrust.
-			#Would need to return Ap, Mnz, melt as a list.
 		#Formatting of calc_phases before trace elements are partitioned.
 		br <- which(rownames(calc_phases)=="Bulk_rs")
 		last_major <- which(colnames(calc_phases)==major_elements[length(major_elements)])
@@ -855,7 +607,6 @@ correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturatio
 			rownames(aa) <- "Mnz"
 			aa[,"P2O5"] <- Mnz[,"P2O5"]
 			aa[,"mass"] <- Mnz[,"mass"]
-			#Mod-tag: LREE are partitioned using kd values. This does not necessarily equate to the assumed stoichiometry of 566794 ppm
 			br <- which(rownames(calc_phases)=="Bulk_rs")
 			calc_phases <- rbind(rbind(calc_phases[1:br-1,],aa),calc_phases[br:nrow(calc_phases),,drop=FALSE])
 			calc_phases["Mnz",(last_major+1):length(aa)]<-NaN
@@ -885,9 +636,7 @@ correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturatio
 		calc_phases[1:br-1,"mol%"] <- calc_phases[1:br-1,"mol"]/sum(calc_phases[1:br-1,"mol"])*100
 		calc_phases["Bulk_rs","mol%"] <- 100
 		calc_phases[1:br,1:which(colnames(calc_phases) == "mol")] <- round(calc_phases[1:br,1:which(colnames(calc_phases) == "mol")],4)
-		#Mod-tag: renaming feldspars. Might be useful to make it into a function since feldspars need to renamed
-		#at multiple points due to recalling meemum.
-		#Need all_elements, calc_phases. Return calc_phases.
+		#renaming feldspars.
 		if(length(intersect(toupper(all_elements),c("CAO","K2O")))==2){
 			split_names<-strsplit(rownames(calc_phases),"_","")
 			first_names<-NULL
@@ -965,9 +714,5 @@ correctApMnzSatWithCa <- function(c0,kd,temp,press,calc_phases,apatite_saturatio
 			}
 		}
 	}
-	#Mod-tag: It might be more useful to return an object other than calc_phases so that the function could be used universally and manipulated without being attached to Rcrust. Calc_phases could then be formatted in run.Rcrust.
 	return(calc_phases)
 }
-
-#Mod-tag: write a general function to add phases to calc_phases
-#return a formatted calc_phases.

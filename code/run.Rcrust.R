@@ -5,262 +5,262 @@
 #############################################
 #function-def:run.Rcrust<-function(comps,c0,press,temp,ph_extr_pnt,cumul_extract_pnt=NULL,ph_add_pnt,cumul_add_pnt=NULL)
 run.Rcrust<-function(comps,c0,press,temp,ph_extr_pnt,cumul_extract_pnt=NULL,ph_add_pnt,cumul_add_pnt=NULL,...){
-  #############################################
-  #
-  # Ancillary function to merge several lines (by mass)
-  #
-  ############################################
-  .wtd.add<-function(thelines,prop="mass",avname="Averaged"){
-    if(nrow(thelines)==1){
-      foo<-thelines
-    }else{
-      # Two sets of cols
-      if(exists_and_true(calc_mol)){
-        extensive.cn<-c("wt%","vol%","mol%","mol")    # Extensive properties (mass dependant) -- add the others if required
-      }else{
-        extensive.cn<-c("wt%")
-      }
-
-      intensive.cn<-setdiff(colnames(thelines),c(prop,extensive.cn))
-      foo<-matrix(rep(0,length(colnames(thelines))),nrow=1)
-      colnames(foo)<-colnames(thelines)
-      # Intensive
-      foo[,intensive.cn]<-thelines[,prop]%*%thelines[,intensive.cn,drop=F]/sum(thelines[,prop])
-      # Extensive
-      foo[,prop]<-sum(thelines[,prop])
-      if(!length(intersect(extensive.cn,thelines))==0){
-        foo[,extensive.cn]<-colSums(thelines[,extensive.cn])}
-    }
-    rownames(foo)<-avname
-    return(foo)
-  }
-  #exists_and_true
-exists_and_true<<-function(x){
-chk<-try(x,silent=TRUE)
-if(class(chk)=="try-error"){return(FALSE)}else{
-return(x)
-}
-}
-  #############################################
-  #
-  # Expression evaluator
-  #
-  ############################################
-  #function-def: eval_expr<-function(expr,calc_phases=calc_phases,crust=crust)
-  #Evaluate expression a given calc_phases and crust
-		  #() are for solution models, {} are for function terms and bodmas
-		  #evaluate any { and word before it up until }
-		  eval_expr<-function(expr,calc_phases=calc_phases,crust=crust){
-		  #wrap outside for evaluation
-		  a<-paste0("{",expr,"}")
-		  while(!unlist(gregexpr("[{]",a))[1]==-1){
-		  letters<-gregexpr("[a-z]",a)
-		  left_bracs<-unlist(gregexpr("[{]",a))
-		  names(left_bracs)<-rep("left",length(left_bracs))
-		  right_bracs<-unlist(gregexpr("[}]",a))
-		  names(right_bracs)<-rep("right",length(right_bracs))
-		  bracs<-sort(c(left_bracs,right_bracs))
-		  #Find inner brackets
-		  i<-1
-		  while(!(names(bracs)[i]=="left"&names(bracs)[i+1]=="right")){
-		  i<-i+1
-		  }
-		  #evaluate inner brackets
-		  #If require function call find name
-		  j<-1
-		  while((bracs[i]-j)%in%letters[[1]]){
-		  j<-j+1
-		  }
-		  #if j==1 dont require function call, else j+1 is first letter of function name
-		  if(!j==1){
-		  funct_name<-substr(a,bracs[i]-j+1,bracs[i]-1)
-		  #apply function
-		  if(funct_name=="ph"){
-		  #arguments of the form ph{phase;unit;x_i;y_i} where unit can be any column name in calc_phases and x_i and y_i are the current point by default
-		  ph_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
-		  if(length(ph_args)==2){
-		  #current_variable
-		  chk_var<-try(eval(parse(text="calc_phases[ph_args[1],ph_args[2]]")),silent=TRUE)
-            if(class(chk_var)=="try-error"){
-              out<-0
-            }else{
-              out<-chk_var
-            }
+	#############################################
+	#
+	# Ancillary function to merge several lines (by mass)
+	#
+	############################################
+	.wtd.add<-function(thelines,prop="mass",avname="Averaged"){
+		if(nrow(thelines)==1){
+			foo<-thelines
+		}else{
+			# Two sets of cols
+			if(exists_and_true(calc_mol)){
+				extensive.cn<-c("wt%","vol%","mol%","mol")    # Extensive properties (mass dependant) -- add the others if required
 			}else{
-			#past_variable
-			#default look in rs
-			if(length(grep("_rs", ph_args[1]))==0&length(grep("_es", ph_args[1]))==0){
-			ph_args[1]<-paste0(ph_args[1],"_rs")
+				extensive.cn<-c("wt%")
 			}
-		  chk_var<-try(eval(parse(text="crust[[eval(parse(text=ph_args[[4]]))]][[eval(parse(text=ph_args[[3]]))]][ph_args[1],ph_args[2]]")),silent=TRUE)
-            if(class(chk_var)=="try-error"){
-              out<-0
-            }else{
-              out<-chk_var
-            }
+
+			intensive.cn<-setdiff(colnames(thelines),c(prop,extensive.cn))
+			foo<-matrix(rep(0,length(colnames(thelines))),nrow=1)
+			colnames(foo)<-colnames(thelines)
+			# Intensive
+			foo[,intensive.cn]<-thelines[,prop]%*%thelines[,intensive.cn,drop=F]/sum(thelines[,prop])
+			# Extensive
+			foo[,prop]<-sum(thelines[,prop])
+			if(!length(intersect(extensive.cn,thelines))==0){
+				foo[,extensive.cn]<-colSums(thelines[,extensive.cn])}
+		}
+		rownames(foo)<-avname
+		return(foo)
+	}
+	#exists_and_true
+	exists_and_true<<-function(x){
+		chk<-try(x,silent=TRUE)
+		if(class(chk)=="try-error"){return(FALSE)}else{
+			return(x)
+		}
+	}
+	#############################################
+	#
+	# Expression evaluator
+	#
+	############################################
+	#function-def: eval_expr<-function(expr,calc_phases=calc_phases,crust=crust)
+	#Evaluate expression a given calc_phases and crust
+		#() are for solution models, {} are for function terms and bodmas
+		#evaluate any { and word before it up until }
+	eval_expr<-function(expr,calc_phases=calc_phases,crust=crust){
+		#wrap outside for evaluation
+		a<-paste0("{",expr,"}")
+		while(!unlist(gregexpr("[{]",a))[1]==-1){
+			letters<-gregexpr("[a-z]",a)
+			left_bracs<-unlist(gregexpr("[{]",a))
+			names(left_bracs)<-rep("left",length(left_bracs))
+			right_bracs<-unlist(gregexpr("[}]",a))
+			names(right_bracs)<-rep("right",length(right_bracs))
+			bracs<-sort(c(left_bracs,right_bracs))
+			#Find inner brackets
+			i<-1
+			while(!(names(bracs)[i]=="left"&names(bracs)[i+1]=="right")){
+				i<-i+1
 			}
-		  }
-		  if(funct_name=="delta"){
-		  skip_delta<-FALSE
-		  #arguments of the form delta{ph;x_#;y_#;unit} where unit can be wt% or mass
-		  delta_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
-		  delta_phs<-delta_args[1]
-		  if(substring(delta_args[2],1,8)=="prev_ext"){
-		  find_ph<-substring(delta_args[2],10)
-		  pnt<-"find"
-		  l<-1
-		  while(pnt=="find"){
-		  #find earliest of phase extraction or phase absent point, if neither show warning and take pnt=1
-		  #find previous increase in _es_cumul
-		  chk_pnt<-try(crust[[y_i]][[x_i-l]][paste0(find_ph,"_es"),"mass"],silent=TRUE)
-		  if(class(chk_pnt)=="try-error"){
-		  chk_pnt<-try(crust[[y_i]][[x_i-l]][paste0(find_ph,"_rs"),"mass"],silent=TRUE)
-		  if(class(chk_pnt)=="try-error"){
-		  pnt<-x_i-l
-		  cat(paste0("Delta calculated to previous phase absent point at x_i = ",pnt,"\n"))
-		  }
-		  }else{
-		  pnt<-x_i-l
-		  cat(paste0("Delta calculated to previous extract at x_i = ",pnt,"\n"))
-		  }
-		  if((x_i-l)==1&pnt=="find"){
-		  pnt<-x_i-l
-		  cat(paste0("Delta calculated to first point at x_i = ",pnt,"\n"))
-		  }
-		  l<-l+1
-		  }
-		  delta_index_x<-pnt
-		  }else{
-		  delta_index_x<-eval(parse(text=delta_args[2]))}
-		  if(!(delta_index_x<=x_n&delta_index_x>=1)){cat("Warning delta_index_x not <x_n and >=1, skipping this delta calculation\n");skip_delta<-TRUE}
-		  delta_index_y<-eval(parse(text=delta_args[3]))
-		  if(!(delta_index_y<=y_n&delta_index_y>=1)){cat("Warning delta_index_y not <y_n and >=1, skipping this delta calculation\n");skip_delta<-TRUE}
-		  delta_unit<-delta_args[4]
-		  if(!(delta_unit=="mass"|delta_unit=="wt%")){
-		  cat("Error delta only currently accepted as mass or wt%\n")
-		  stop()}
-		  if(!skip_delta){
-		    current_mode<-0
-			previous_mode<-0
-			#Check for plus sign (e.g. aluminosilicate given as sill+ky+and)
-			delta_phases<-strsplit(delta_args[1],"+",fixed=TRUE)[[1]]
-			for(each_ph in delta_phases){
-			#current_mode
-			chk_var<-try(eval(parse(text="calc_phases[each_ph,delta_unit]")),silent=TRUE)
-			if(!class(chk_var)=="try-error"){
-			current_mode<-current_mode+chk_var
+			#evaluate inner brackets
+			#If require function call find name
+			j<-1
+			while((bracs[i]-j)%in%letters[[1]]){
+				j<-j+1
 			}
-			#previous_mode
-			delta_phase_rs<-paste(each_ph,"_rs",sep="")
-			chk_var<-try(eval(parse(text="crust[[delta_index_y]][[delta_index_x]][delta_phase_rs,delta_unit]")),silent=TRUE)
-            if(!class(chk_var)=="try-error"){
-            previous_mode<-previous_mode+chk_var
-            }
-			}
-		  #delta
-		  if(current_mode>previous_mode){
-		  out<-current_mode-previous_mode}else{
-		  out<-0
-		  }
-		  }else{out<-0}
-		  }
-		  if(funct_name=="retain"){
-         #c# If Retention Mode - Calculate mass of retention phases to extract
-            #c# Extract till retention amount of retention phases is left
-			#arguments of the form retain{amount;unit;ph} where ph can be omitted to take on the current ph
-		  retain_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
-		  ret<-as.numeric(retain_args[1])
-          retention_unit<-retain_args[2]
-		  if(!is.na(retain_args[3])){ph<-retain_args[3]}
-			bulk_no<-which(rownames(calc_phases)=="Bulk_rs")
-			ph_no<-which(rownames(calc_phases)==ph)
-            if(retention_unit=="mass"){
-			system_less_ret<-calc_phases[-c(bulk_no,ph_no),"mass"]
-              if(calc_phases[ph,"mass"]<=ret){
-              out<-0
-              }else{
-              out<-calc_phases[ph,"mass"]-ret
-              }
-            }
-            if(retention_unit=="vol%"){
-			system_less_ret<-calc_phases[-c(bulk_no,ph_no),"vol%"]
-			if(calc_phases[ph,"vol%"]<=ret){
-            out<-0
-            }else{
-            new_ret_vol<-(ret*(sum(system_less_ret)))/(100-ret)
-			new_ret_mass<-new_ret_vol*calc_phases[ph,"mass"]/calc_phases[ph,"vol%"]
-            out<-calc_phases[ph,"mass"]-new_ret_mass
-              }
-            }
-			            if(retention_unit=="wt%"){
-			system_less_ret<-calc_phases[-c(bulk_no,ph_no),"wt%"]
-              if(calc_phases[ph,"wt%"]<=ret){
-              out<-0
-              }else{
-              new_ret_wt<-(ret*(sum(system_less_ret)))/(100-ret)
-			  new_ret_mass<-new_ret_wt*calc_phases[ph,"mass"]/calc_phases[ph,"wt%"]
-              out<-calc_phases[ph,"mass"]-new_ret_mass
-              }
-            }
-		  }
-		  if(funct_name=="return"){
-		    #arguments of the form return{phase;amount} where amount can be % or mass
-		  return_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
-		  #check if phase is in extract cumul subsystem
-		  chk_var<-try(eval(parse(text=paste0("cumul_extract_pnt[\"",return_args[1],"_es_cumul\",\"mass\"]"))),silent=TRUE)
-		  if(class(chk_var)!="try-error"){
-		  if(!is.null(chk_var)){
-		  percentage<-FALSE
-		  		  #if percentage tag to calculate
-		  if(length(grep("%",return_args[2]))!=0){
-		  percentage<-TRUE
-		  return_args[2]<-gsub("%","",return_args[2])
-		  }
-		  #evaluate for number
-		    chk_num<-try(eval(parse(text=return_args[2])),silent=TRUE)
-            if(class(chk_num)=="try-error"){
-		  cat("Error phase addition could not evaluate isolated function correctly")
-		  stop()
-            }
-		  #calculate
-		  if(percentage){
-		  take<-chk_num/100*chk_var
-		  leave<-(100-chk_num)/100*chk_var
-		  }else{
-		  take<-chk_num
-		  leave<-as.numeric(chk_var)-chk_num
-		  }
-		  if(leave<0){
-		  take<-chk_var
-		  leave<-0}
-		  #transfer
-		  cumul_extract_pnt[paste0(return_args[1],"_es_cumul"),"mass"]<<-leave
-		  #leave calc
-		  a<-paste(c(cumul_extract_pnt[paste0(return_args[1],"_es_cumul"),comps],take),collapse=",")
-		  break
-		  }else{
-		   cat(paste0("Phase ",return_args[1]," not found in extract cumul\n"))
-		   a<-paste(rep(0,length(comps)+1),collapse=",")
-		   break
-		   out<-""
-		  }
-		  }else{
-		   cat(paste0("Phase ",return_args[1]," not found in extract cumul\n"))
-		   a<-paste(rep(0,length(comps)+1),collapse=",")
-		   break
-		   out<-""
-		  }
-		  }
-		  #replace inner brackets with function output
-		  a<-paste(substr(a,1,bracs[i]-j),out,substr(a,bracs[i+1]+1,nchar(a)),sep="")
-		  }else{
-		  #evaluate inner brackets for bodmas output
-		  out<-eval(parse(text=substr(a,bracs[i]+1,bracs[i+1]-1)))
-		  a<-paste(substr(a,1,bracs[i]-j),out,substr(a,bracs[i+1]+1,nchar(a)),sep="")
-		  }
-		  }
-		  return(a)
-		  }
+			#if j==1 dont require function call, else j+1 is first letter of function name
+			if(!j==1){
+				funct_name<-substr(a,bracs[i]-j+1,bracs[i]-1)
+				#apply function
+				if(funct_name=="ph"){
+					#arguments of the form ph{phase;unit;x_i;y_i} where unit can be any column name in calc_phases and x_i and y_i are the current point by default
+					ph_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
+					if(length(ph_args)==2){
+						#current_variable
+						chk_var<-try(eval(parse(text="calc_phases[ph_args[1],ph_args[2]]")),silent=TRUE)
+						if(class(chk_var)=="try-error"){
+						  out<-0
+						}else{
+						  out<-chk_var
+						}
+					}else{
+						#past_variable
+						#default look in rs
+						if(length(grep("_rs", ph_args[1]))==0&length(grep("_es", ph_args[1]))==0){
+							ph_args[1]<-paste0(ph_args[1],"_rs")
+						}
+						chk_var<-try(eval(parse(text="crust[[eval(parse(text=ph_args[[4]]))]][[eval(parse(text=ph_args[[3]]))]][ph_args[1],ph_args[2]]")),silent=TRUE)
+						if(class(chk_var)=="try-error"){
+						  out<-0
+						}else{
+						  out<-chk_var
+						}
+					}
+				}
+				if(funct_name=="delta"){
+					skip_delta<-FALSE
+					#arguments of the form delta{ph;x_#;y_#;unit} where unit can be wt% or mass
+					delta_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
+					delta_phs<-delta_args[1]
+					if(substring(delta_args[2],1,8)=="prev_ext"){
+						find_ph<-substring(delta_args[2],10)
+						pnt<-"find"
+						l<-1
+						while(pnt=="find"){
+							#find earliest of phase extraction or phase absent point, if neither show warning and take pnt=1
+							#find previous increase in _es_cumul
+							chk_pnt<-try(crust[[y_i]][[x_i-l]][paste0(find_ph,"_es"),"mass"],silent=TRUE)
+							if(class(chk_pnt)=="try-error"){
+								chk_pnt<-try(crust[[y_i]][[x_i-l]][paste0(find_ph,"_rs"),"mass"],silent=TRUE)
+								if(class(chk_pnt)=="try-error"){
+									pnt<-x_i-l
+									cat(paste0("Delta calculated to previous phase absent point at x_i = ",pnt,"\n"))
+								}
+							}else{
+								pnt<-x_i-l
+								cat(paste0("Delta calculated to previous extract at x_i = ",pnt,"\n"))
+							}
+							if((x_i-l)==1&pnt=="find"){
+								pnt<-x_i-l
+								cat(paste0("Delta calculated to first point at x_i = ",pnt,"\n"))
+							}
+							l<-l+1
+						}
+						delta_index_x<-pnt
+					}else{
+						delta_index_x<-eval(parse(text=delta_args[2]))}
+					if(!(delta_index_x<=x_n&delta_index_x>=1)){cat("Warning delta_index_x not <x_n and >=1, skipping this delta calculation\n");skip_delta<-TRUE}
+					delta_index_y<-eval(parse(text=delta_args[3]))
+					if(!(delta_index_y<=y_n&delta_index_y>=1)){cat("Warning delta_index_y not <y_n and >=1, skipping this delta calculation\n");skip_delta<-TRUE}
+					delta_unit<-delta_args[4]
+					if(!(delta_unit=="mass"|delta_unit=="wt%")){
+						cat("Error delta only currently accepted as mass or wt%\n")
+						stop()}
+					if(!skip_delta){
+						current_mode<-0
+						previous_mode<-0
+						#Check for plus sign (e.g. aluminosilicate given as sill+ky+and)
+						delta_phases<-strsplit(delta_args[1],"+",fixed=TRUE)[[1]]
+						for(each_ph in delta_phases){
+							#current_mode
+							chk_var<-try(eval(parse(text="calc_phases[each_ph,delta_unit]")),silent=TRUE)
+							if(!class(chk_var)=="try-error"){
+								current_mode<-current_mode+chk_var
+							}
+							#previous_mode
+							delta_phase_rs<-paste(each_ph,"_rs",sep="")
+							chk_var<-try(eval(parse(text="crust[[delta_index_y]][[delta_index_x]][delta_phase_rs,delta_unit]")),silent=TRUE)
+							if(!class(chk_var)=="try-error"){
+								previous_mode<-previous_mode+chk_var
+							}
+						}
+						#delta
+						if(current_mode>previous_mode){
+							out<-current_mode-previous_mode}else{
+							out<-0
+						}
+					}else{out<-0}
+				}
+				if(funct_name=="retain"){
+					#c# If Retention Mode - Calculate mass of retention phases to extract
+					#c# Extract till retention amount of retention phases is left
+					#arguments of the form retain{amount;unit;ph} where ph can be omitted to take on the current ph
+					retain_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
+					ret<-as.numeric(retain_args[1])
+					retention_unit<-retain_args[2]
+					if(!is.na(retain_args[3])){ph<-retain_args[3]}
+					bulk_no<-which(rownames(calc_phases)=="Bulk_rs")
+					ph_no<-which(rownames(calc_phases)==ph)
+					if(retention_unit=="mass"){
+						system_less_ret<-calc_phases[-c(bulk_no,ph_no),"mass"]
+						if(calc_phases[ph,"mass"]<=ret){
+							out<-0
+						}else{
+							out<-calc_phases[ph,"mass"]-ret
+						}
+					}
+					if(retention_unit=="vol%"){
+						system_less_ret<-calc_phases[-c(bulk_no,ph_no),"vol%"]
+						if(calc_phases[ph,"vol%"]<=ret){
+							out<-0
+						}else{
+							new_ret_vol<-(ret*(sum(system_less_ret)))/(100-ret)
+							new_ret_mass<-new_ret_vol*calc_phases[ph,"mass"]/calc_phases[ph,"vol%"]
+							out<-calc_phases[ph,"mass"]-new_ret_mass
+						}
+					}
+					if(retention_unit=="wt%"){
+						system_less_ret<-calc_phases[-c(bulk_no,ph_no),"wt%"]
+						if(calc_phases[ph,"wt%"]<=ret){
+							out<-0
+						}else{
+							new_ret_wt<-(ret*(sum(system_less_ret)))/(100-ret)
+							new_ret_mass<-new_ret_wt*calc_phases[ph,"mass"]/calc_phases[ph,"wt%"]
+							out<-calc_phases[ph,"mass"]-new_ret_mass
+						}
+					}
+				}
+				if(funct_name=="return"){
+					#arguments of the form return{phase;amount} where amount can be % or mass
+					return_args<-strsplit(substr(a,bracs[i]+1,bracs[i+1]-1),"[;,]")[[1]]
+					#check if phase is in extract cumul subsystem
+					chk_var<-try(eval(parse(text=paste0("cumul_extract_pnt[\"",return_args[1],"_es_cumul\",\"mass\"]"))),silent=TRUE)
+					if(class(chk_var)!="try-error"){
+						if(!is.null(chk_var)){
+							percentage<-FALSE
+								  #if percentage tag to calculate
+							if(length(grep("%",return_args[2]))!=0){
+								percentage<-TRUE
+								return_args[2]<-gsub("%","",return_args[2])
+							}
+							#evaluate for number
+							chk_num<-try(eval(parse(text=return_args[2])),silent=TRUE)
+							if(class(chk_num)=="try-error"){
+								cat("Error phase addition could not evaluate isolated function correctly")
+								stop()
+							}
+							#calculate
+							if(percentage){
+								take<-chk_num/100*chk_var
+								leave<-(100-chk_num)/100*chk_var
+							}else{
+								take<-chk_num
+								leave<-as.numeric(chk_var)-chk_num
+							}
+							if(leave<0){
+								take<-chk_var
+								leave<-0}
+							#transfer
+							cumul_extract_pnt[paste0(return_args[1],"_es_cumul"),"mass"]<<-leave
+							#leave calc
+							a<-paste(c(cumul_extract_pnt[paste0(return_args[1],"_es_cumul"),comps],take),collapse=",")
+							break
+						}else{
+							cat(paste0("Phase ",return_args[1]," not found in extract cumul\n"))
+							a<-paste(rep(0,length(comps)+1),collapse=",")
+							break
+							out<-""
+						}
+					}else{
+						cat(paste0("Phase ",return_args[1]," not found in extract cumul\n"))
+						a<-paste(rep(0,length(comps)+1),collapse=",")
+						break
+						out<-""
+					}
+				}
+					#replace inner brackets with function output
+					a<-paste(substr(a,1,bracs[i]-j),out,substr(a,bracs[i+1]+1,nchar(a)),sep="")
+				}else{
+					#evaluate inner brackets for bodmas output
+					out<-eval(parse(text=substr(a,bracs[i]+1,bracs[i+1]-1)))
+					a<-paste(substr(a,1,bracs[i]-j),out,substr(a,bracs[i+1]+1,nchar(a)),sep="")
+				}
+		}
+		return(a)
+	}
 calc<-TRUE
 pass<-1
 extract<-NULL
@@ -489,7 +489,6 @@ if(!is.na(match("Bulk_rs",rownames(calc_phases)))){
 }
 #Sean-tag
 #Calculate Trace element partitioning and apply Zircon, Monazite and Apatite saturation corrections
-# browser()
 if(calculate_traces){
 	#Mod-tag: Making subsolidus routine within traces for apatite, although traces don't work subsolidus,
 		#because we assume that all P2O5 will reside in apatite in subsolidus conditions .
@@ -530,7 +529,6 @@ if(calculate_traces){
 						cmins=bpm$cmins,dont=character(0))
 				}
 				if(apply_trace_correction=="Monazite saturation (Montel 1993)"){
-				# browser()
 					mz<-correctMnzSat(kd=kd.ppx,
 						c0=c0[1:length(c0)-1],
 						pm=calc_phases["Melt","wt%"],
@@ -555,7 +553,7 @@ if(calculate_traces){
 				}
 				#Apatite saturation routine written by Sean Hoffman 2021
 				#Routine can be found in apSaturation.r
-				#Apatite saturation currently only deals with P2O5, CaO, H2O, and traces
+				#Apatite saturation currently only deals with P2O5, CaO, and traces
 				if(apply_trace_correction=="Apatite saturation"){
 					#normalise c0 major elements, including P2O5.
 					store_c0 <- c0
@@ -572,7 +570,6 @@ if(calculate_traces){
 							calc_phases["Bulk_rs", names(c0[c(major_elements,"P2O5")])]<-c0[c(major_elements,"P2O5")]
 						}
 						#Add trace elements to calc_phases, specifically modified for ApSat.
-						#Mod-tag: Duplicating code is not ideal but it works for now.
 						if(!all(trace_elements=="P2O5")){
 							min.props<-calc_phases[c(-which(rownames(calc_phases)=="Melt"),
 								-which(rownames(calc_phases)=="Bulk_rs")),"wt%"]
@@ -605,30 +602,6 @@ if(calculate_traces){
 					store_c0 <- c0
 					if(!is.na(match("P2O5",names(c0)))){
 						c0[c(major_elements,"P2O5")] <- c0[c(major_elements,"P2O5")]/sum(c0[c(major_elements,"P2O5")])*c0["mass"]
-						# mz<-correctMnzSat(kd=kd.ppx,
-							# c0=c0[1:length(c0)-1],
-							# pm=calc_phases["Melt","wt%"],
-							# min.props=min.props,
-							# melt.arg=list(TT=temp+273.15,
-								# mjrs=calc_phases["Melt",major_elements_without_H2O],
-								# trc=bpm$cL,
-								# H2O=calc_phases["Melt","H2O"]),
-							# cmins=bpm$cmins,dont=character(0))
-						# calc_phases <- correctApMnzSatWithCa(c0=c0,
-							# kd=kd.ppx,
-							# temp=temp,
-							# press=press,
-							# calc_phases=calc_phases,
-							# apatite_saturation=apatite_saturation,
-							# major_elements=major_elements,
-							# mz_cL=mz$cL,
-							# min.props=min.props,
-							# cmins=bpm$cmins,
-							# melt.arg=list(TT=temp+273.15,
-								# mjrs=calc_phases["Melt",major_elements_without_H2O],
-								# trc=bpm$cL,
-								# H2O=calc_phases["Melt","H2O"]),
-							# dont=character(0))
 						calc_phases <- correctApMnzSatWithCa(c0=c0,
 							kd=kd.ppx,
 							temp=temp,
@@ -680,8 +653,7 @@ if(calculate_traces){
 						calc_phases["Mnz",major_elements]<-0
 					}
 				}#End: saturation routines other than apatite saturation
-			}else{#Mod-tag: to get traces into apatite, apatite saturation needs to come in here or duplicate the code.
-				#This section triggers is if trace correction is not selected. But apatite is part of trace corrections..
+			}else{
 				#Trace element data without saturation corrections
 				#add trace element data to calc_phases
 				trace_mat<-matrix(NA,nrow(calc_phases),length(trace_elements))
@@ -714,12 +686,8 @@ if(calculate_traces){
 				if(all(round(calc_phases["Bulk_rs", names(c0[c(major_elements,"P2O5")])],10) == round(c0[c(major_elements,"P2O5")],10))){
 					calc_phases["Bulk_rs", names(c0[c(major_elements,"P2O5")])]<-c0[c(major_elements,"P2O5")]
 				}
-				#There is an edge case where isolating CaO from the bulk and then recalculating stable phases
-					#will increase hydrate bulk sufficiently to allow Melt to form. Thus traces must be partitioned.
-					#P2O5 is still assumed to only occur in apatite.
 				if(any(rownames(calc_phases)=="Melt")){
 					#Add trace elements to calc_phases, specifically modified for ApSat.
-					#Mod-tag: Duplicating code is not ideal but it works for now.
 					if(!all(trace_elements=="P2O5")){
 						min.props<-calc_phases[c(-which(rownames(calc_phases)=="Melt"),
 												-which(rownames(calc_phases)=="Bulk_rs")),"wt%"]
