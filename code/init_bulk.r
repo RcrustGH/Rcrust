@@ -11,7 +11,11 @@ if(calculate_traces){
       install.packages(paste0(gsub("/code","/plugins",getwd()),"/GCDmodel_0.4.7.zip"))
     }
   library(GCDmodel)
-  kd.in<-read.table(paste0(gsub("/code","/data/",getwd()),kd_file),sep="\t")
+  if(apply_trace_correction=="Apatite saturation"){
+	if(!kd_file == ""){
+	  kd.in<-read.table(paste0(gsub("/code","/data/",getwd()),kd_file),sep="\t")
+	}
+  }
 }
 # Error handling
 if(exists("bulk_def")){

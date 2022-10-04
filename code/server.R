@@ -764,20 +764,32 @@ shinyServer(function(input, output,session) {
       }else{
         trace_elements<-""
       }
-	  if(!is.null(input$Xmz)){
-		if(input$Xmz == ""){
+		if(input$Xmz == "" || is.null(input$Xmz)){
 			Xmz <- 0.83
 		} else {
 			Xmz<-input$Xmz
 		}
+		saturation_input <- ""
+	  if(input$calculate_traces){
+		saturation_input <- paste0("apply_trace_correction<-",pasteq(input$apply_trace_correction),"\n")
+		if(input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation"){
+			saturation_input <- paste0(saturation_input,
+				"apatite_saturation<-",pasteq(input$apatite_saturation),"\n")
+			if(input$apply_trace_correction == "Apatite & Monazite Saturation"){
+				saturation_input <- paste0(saturation_input,
+				"Xmz<-",pasteq(input$Xmz),"\n")
+			}
+		}
+		saturation_input <- paste0(saturation_input,
+			"kd_file<-",pasteq(input$kd_file),"\n",
+			"trace_elements<-c(",pasteq(trace_elements),")\n")
 	  }
-	  # if(!is.null(input$apply_trace_correction)){
-		# apply_trace_correction<-input$apply_trace_correction
-	  # }
 	  all_elements<-c(major_elements,trace_elements)
 	  if(input$calculate_traces){
-	  if(!file.exists(paste0(gsub("/code","/data",getwd()),"/",input$kd_file))){return(paste0("Error: Kd file not found at ",paste0(gsub("/code","/data",getwd()),"/",input$kd_file)))}
-      }
+		if(!input$apply_trace_correction == "Apatite saturation"){
+			if(!file.exists(paste0(gsub("/code","/data",getwd()),"/",input$kd_file))){return(paste0("Error: Kd file not found at ",paste0(gsub("/code","/data",getwd()),"/",input$kd_file)))}
+		}
+	  }
 	  if(input$bulk_def_file==FALSE){bulk_def<-"input"}else{bulk_def<-"file"}
       w_bulk_composition<-paste0("###############\n#\n#   Bulk composition data \n#\n###############\n",
                                  "comp_transformations<-c(",bl(comp_transformations),")\n",
@@ -785,11 +797,7 @@ shinyServer(function(input, output,session) {
                                  "major_elements<-c(",pasteq(major_elements),")\n",
 								 "set_oxygen_fugacity<-",input$set_oxygen_fugacity,"\n",
 								 "calculate_traces<-",input$calculate_traces,"\n",
-								 "apply_trace_correction<-",pasteq(input$apply_trace_correction),"\n",
-								 "Xmz<-",pasteq(input$Xmz),"\n",
-								 "apatite_saturation<-",pasteq(input$apatite_saturation),"\n",
-								 "kd_file<-",pasteq(input$kd_file),"\n",
-								 "trace_elements<-c(",pasteq(trace_elements),")\n",
+								 saturation_input,
                                  "bulk_definitions<-c(",bl(bulk_definitions),")\n",
                                  "bulk_file<-",pasteq(input$bulk_file),"\n"
       )
@@ -1231,10 +1239,12 @@ shinyServer(function(input, output,session) {
 			reactive_message$data <- paste0("Error: Cannot run calculation. Missing ",var_missing)
 			return(reactive_message$data)
 				#Check that P2O5 selected for certain saturation corrections.
-		} else if(input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation"){
-			if(!any(input$trace_elements=="P2O5")){
-				reactive_message$data <- paste0("P2O5 not selected under trace elements for saturation corrections")
-				return(reactive_message$data)
+		} else if(input$calculate_traces == TRUE){
+			if(input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation"){
+				if(!any(input$trace_elements=="P2O5")){
+					reactive_message$data <- paste0("P2O5 not selected under trace elements for saturation corrections")
+					return(reactive_message$data)
+				}
 			}
 		}
       #Save
@@ -1453,23 +1463,6 @@ if(end_of_calc=="Shutdown"){system('shutdown -s')}
 	  }
       current_components_r$data<-current_components
         })#end of Observe component packet
-	##removed this because P2O5 was falsely being loaded into GUI when apsat not selected.
-	#Add P2O5 to traces list if performing apatite saturation routine or apatite & monazite saturation routine
-	# observe({
-		# current_traces <- trace_elements_r$data
-		#Fix-tag: Test loading, saving with changing of trace_elements_r$data. (Adding P2O5 for apatite saturation)
-		#Fix-tag: apply_trace_correction may not be defined yet if new project opened
-		# if(exists("apply_trace_correction")){
-			# if(apply_trace_correction != "None" && apply_trace_correction != ""){
-				# if(apply_trace_correction == "Apatite saturation" || apply_trace_correction == "Apatite & Monazite Saturation"){
-					# if(any(is.na(match("P2O5",current_traces)))){
-						# current_traces <- c(current_traces,"P2O5")
-					# }
-				# }
-			# }
-		# }
-		# trace_elements_r$data <- current_traces
-		# })
     observe({
       #use current component transformation inputs to update current components_r and selection in major elements
       current_components<-available_components_r$current
@@ -1501,22 +1494,54 @@ if(end_of_calc=="Shutdown"){system('shutdown -s')}
 	output$traces <- renderUI({
 	#Mod-tag: think of whether we need to show traces with P2O5 without a kd file.
 	#Possible solution: if apatite saturation is selected, traces input with P2O5. If kd file is then input, show rest of available traces.
-	  if(!file.exists(paste0(gsub("/code","/data",getwd()),"/",input$kd_file))){paste0("Provide valid Kd file in order to select trace elements")}else{
-	  traces_file<-colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t"))
-		if(input$apply_trace_correction=="Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation"){
+		traces_file <- ""
+		show_traces <- TRUE
+		if(!input$apply_trace_correction=="Apatite saturation" && !input$apply_trace_correction == "None"){
+			if(!file.exists(paste0(gsub("/code","/data",getwd()),"/",input$kd_file))){
+				paste0("Provide valid Kd file in order to select trace elements")
+				show_traces <- FALSE
+			}else{
+				traces_file<-colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t"))
+				if(input$apply_trace_correction=="Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation"){
+					if(is.na(match("P2O5",traces_file))){
+						traces_file<-c(traces_file,"P2O5")
+					}
+				}
+			}
+		} else {
+			if(!input$kd_file == ""){
+				if(!file.exists(paste0(gsub("/code","/data",getwd()),"/",input$kd_file))){
+					paste0("Provide valid Kd file in order to select trace elements")
+				} else {
+					traces_file<-colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t"))
+				}
+			}
 			if(is.na(match("P2O5",traces_file))){
 				traces_file<-c(traces_file,"P2O5")
 			}
 		}
-      if(any(input$trace_elements=="load")){
-	  #selectizeInput('trace_elements', 'Trace elements',c(trace_elements_r$data,setdiff(colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t")),trace_elements_r$data),"load"),selected=trace_elements_r$data,multiple=TRUE)
-	  selectizeInput('trace_elements', 'Trace elements',c(trace_elements_r$data,setdiff(traces_file,trace_elements_r$data),"load"),selected=trace_elements_r$data,multiple=TRUE)
-      }else{
-	  #selectizeInput('trace_elements', 'Trace elements',c(input$trace_elements,setdiff(colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t")),input$trace_elements),"load"),selected=input$trace_elements,multiple=TRUE)
-	  selectizeInput('trace_elements', 'Trace elements',c(input$trace_elements,setdiff(traces_file,input$trace_elements),"load"),selected=input$trace_elements,multiple=TRUE)
-	  }
-	  }
-      })
+		if(show_traces){
+			if(any(input$trace_elements=="load")){
+				#selectizeInput('trace_elements', 'Trace elements',c(trace_elements_r$data,setdiff(colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t")),trace_elements_r$data),"load"),selected=trace_elements_r$data,multiple=TRUE)
+				selectizeInput('trace_elements', 'Trace elements',
+				c(trace_elements_r$data,
+					setdiff(traces_file,trace_elements_r$data)
+					,"load"),
+				selected=trace_elements_r$data,
+				multiple=TRUE)
+			}else{
+				#selectizeInput('trace_elements', 'Trace elements',c(input$trace_elements,setdiff(colnames(read.table(paste0(gsub("/code","/data",getwd()),"/",input$kd_file),sep="\t")),input$trace_elements),"load"),selected=input$trace_elements,multiple=TRUE)
+				selectizeInput('trace_elements', 'Trace elements',
+					c(input$trace_elements,
+						setdiff(traces_file,input$trace_elements),
+						"load"),
+					selected=input$trace_elements,
+					multiple=TRUE)
+			}
+		} else {
+			paste0("Provide valid Kd file in order to select trace elements")
+		}
+	})
     # Dyanmically use number of bulk definitions to create the correct number of From,To,bulk inputs
     output$bulk <- renderUI({
       if(input$n_bulk_def=="load"){
