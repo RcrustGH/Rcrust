@@ -771,7 +771,6 @@ shinyServer(function(input, output,session) {
 		}
 		saturation_input <- ""
 	  if(input$calculate_traces){
-		saturation_input <- paste0("apply_trace_correction<-",pasteq(input$apply_trace_correction),"\n")
 		if(input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation"){
 			saturation_input <- paste0(saturation_input,
 				"apatite_saturation<-",pasteq(input$apatite_saturation),"\n")
@@ -780,9 +779,6 @@ shinyServer(function(input, output,session) {
 				"Xmz<-",pasteq(input$Xmz),"\n")
 			}
 		}
-		saturation_input <- paste0(saturation_input,
-			"kd_file<-",pasteq(input$kd_file),"\n",
-			"trace_elements<-c(",pasteq(trace_elements),")\n")
 	  }
 	  all_elements<-c(major_elements,trace_elements)
 	  if(input$calculate_traces){
@@ -797,7 +793,10 @@ shinyServer(function(input, output,session) {
                                  "major_elements<-c(",pasteq(major_elements),")\n",
 								 "set_oxygen_fugacity<-",input$set_oxygen_fugacity,"\n",
 								 "calculate_traces<-",input$calculate_traces,"\n",
+								 "apply_trace_correction<-",pasteq(input$apply_trace_correction),"\n",
 								 saturation_input,
+								 "kd_file<-",pasteq(input$kd_file),"\n",
+								 "trace_elements<-c(",pasteq(trace_elements),")\n",
                                  "bulk_definitions<-c(",bl(bulk_definitions),")\n",
                                  "bulk_file<-",pasteq(input$bulk_file),"\n"
       )
