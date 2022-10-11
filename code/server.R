@@ -884,17 +884,18 @@ shinyServer(function(input, output, session) {
       }
       saturation_input <- ""
       if (input$calculate_traces) {
-        if (input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation") {
+        if (input$apply_trace_correction == "Apatite saturation") {
           saturation_input <- paste0(
             saturation_input,
-            "apatite_saturation<-", pasteq(input$apatite_saturation), "\n"
+            "apatite_saturation_Ap<-", pasteq(input$apatite_saturation_Ap), "\n"
           )
-          if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
-            saturation_input <- paste0(
-              saturation_input,
-              "Xmz<-", pasteq(input$Xmz), "\n"
-            )
-          }
+        }
+        if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
+          saturation_input <- paste0(
+            saturation_input,
+            "apatite_saturation_ApMnz<-", pasteq(input$apatite_saturation_ApMnz), "\n",
+            "Xmz<-", pasteq(input$Xmz), "\n"
+          )
         }
       }
       all_elements <- c(major_elements, trace_elements)
@@ -1227,7 +1228,7 @@ shinyServer(function(input, output, session) {
       }
       # Values to load
       # Sean-tag
-      load_variables <- c("x_n" = "inp", "y_n" = "inp", "n_pt_def" = "reactive", "n_comp_trans" = "reactive", "bulk_def_file" = "checkbox", "set_oxygen_fugacity" = "checkbox", "calculate_traces" = "checkbox", "apply_trace_correction" = "select", "Xmz" = "inp", "apatite_saturation" = "select", "major_elements" = "reactive_select", "trace_elements" = "reactive_select", "kd_file" = "inp", "n_bulk_def" = "reactive", "bulk_file" = "inp", "ph_add" = "checkbox", "n_ph_add_def" = "reactive", "ph_extr" = "checkbox", "reequilibrate_steps" = "checkbox", "n_ph_extr_def" = "reactive", "thermodynamic_data_file" = "inp", "saturated_components" = "inp", "saturated_phase_components" = "inp", "independent_potential_fugacity_activity" = "inp", "calculate_activities" = "checkbox", "G_pure_phases" = "inp", "exclude_phases" = "inp", "component_packet" = "checkbox", "cp_components" = "reactive", "print_meem" = "checkbox", "export_meemum_output" = "checkbox", "end_of_calc" = "inp", "solution_models_file" = "reactive", "perplex_option_file" = "inp", "meemum_path" = "inp", "phase_aliases" = "inp", "PAM_compilation" = "inp", "compile_PAM" = "checkbox")
+      load_variables <- c("x_n" = "inp", "y_n" = "inp", "n_pt_def" = "reactive", "n_comp_trans" = "reactive", "bulk_def_file" = "checkbox", "set_oxygen_fugacity" = "checkbox", "calculate_traces" = "checkbox", "apply_trace_correction" = "select", "Xmz" = "inp", "apatite_saturation_Ap" = "select", "apatite_saturation_ApMnz" = "select", "major_elements" = "reactive_select", "trace_elements" = "reactive_select", "kd_file" = "inp", "n_bulk_def" = "reactive", "bulk_file" = "inp", "ph_add" = "checkbox", "n_ph_add_def" = "reactive", "ph_extr" = "checkbox", "reequilibrate_steps" = "checkbox", "n_ph_extr_def" = "reactive", "thermodynamic_data_file" = "inp", "saturated_components" = "inp", "saturated_phase_components" = "inp", "independent_potential_fugacity_activity" = "inp", "calculate_activities" = "checkbox", "G_pure_phases" = "inp", "exclude_phases" = "inp", "component_packet" = "checkbox", "cp_components" = "reactive", "print_meem" = "checkbox", "export_meemum_output" = "checkbox", "end_of_calc" = "inp", "solution_models_file" = "reactive", "perplex_option_file" = "inp", "meemum_path" = "inp", "phase_aliases" = "inp", "PAM_compilation" = "inp", "compile_PAM" = "checkbox")
       # load reactive stores
       if (exists("pt_definitions")) {
         pt_definitions_r$data <- pt_definitions
@@ -1343,8 +1344,8 @@ shinyServer(function(input, output, session) {
         }
         if (load_variables[i] == "select") {
           if (exists(names(load_variables)[i])) {
-            updateSelectInput(session, names(load_variables)[i], selected = eval(parse(text = names(load_variables)[i])))
-          } else {
+            updateSelectInput(session, inputId = names(load_variables)[i], selected = eval(parse(text = names(load_variables)[i])))
+            } else {
             updateSelectInput(session, names(load_variables)[i], selected = "")
           }
         }
@@ -1779,6 +1780,13 @@ shinyServer(function(input, output, session) {
   output$traces <- renderUI({
     traces_file <- ""
     show_traces <- TRUE
+    # if (!input$kd_file == "") {
+    #   if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
+    #     paste0("Provide valid Kd file in order to select trace elements")
+    #   } else {
+    #     traces_file <- colnames(read.table(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file), sep = "\t"))
+    #   }
+    # }
     if (!input$apply_trace_correction == "Apatite saturation") {
       if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
         paste0("Provide valid Kd file in order to select trace elements")

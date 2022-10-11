@@ -120,7 +120,7 @@ shinyUI(
                     ),
                     column(4,
                       offset = 2,
-                      selectInput("apatite_saturation", "Apatite saturation options",
+                      selectInput("apatite_saturation_ApMnz", "Apatite saturation options",
                         c(
                           "Harrison & Watson 1984",
                           "H&W with Bea et al. 1992",
@@ -139,7 +139,7 @@ shinyUI(
                 ),
                 conditionalPanel(
                   "input.apply_trace_correction == \"Apatite saturation\"",
-                  selectInput("apatite_saturation", "Apatite saturation options",
+                  selectInput("apatite_saturation_Ap", "Apatite saturation options",
                     c(
                       "Harrison & Watson 1984",
                       "H&W with Bea et al. 1992",

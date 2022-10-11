@@ -622,7 +622,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                 temp = temp,
                 press = press,
                 calc_phases = calc_phases,
-                apatite_saturation = apatite_saturation,
+                apatite_saturation = apatite_saturation_Ap,
                 major_elements = major_elements
               )
               # Check that Bulk_rs values match the (modified) c0.
@@ -669,37 +669,13 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
             store_c0 <- c0
             if (!is.na(match("P2O5", names(c0)))) {
               c0[c(major_elements, "P2O5")] <- c0[c(major_elements, "P2O5")] / sum(c0[c(major_elements, "P2O5")]) * c0["mass"]
-              # mz<-correctMnzSat(kd=kd.ppx,
-              # c0=c0[1:length(c0)-1],
-              # pm=calc_phases["Melt","wt%"],
-              # min.props=min.props,
-              # melt.arg=list(TT=temp+273.15,
-              # mjrs=calc_phases["Melt",major_elements_without_H2O],
-              # trc=bpm$cL,
-              # H2O=calc_phases["Melt","H2O"]),
-              # cmins=bpm$cmins,dont=character(0))
-              # calc_phases <- correctApMnzSatWithCa(c0=c0,
-              # kd=kd.ppx,
-              # temp=temp,
-              # press=press,
-              # calc_phases=calc_phases,
-              # apatite_saturation=apatite_saturation,
-              # major_elements=major_elements,
-              # mz_cL=mz$cL,
-              # min.props=min.props,
-              # cmins=bpm$cmins,
-              # melt.arg=list(TT=temp+273.15,
-              # mjrs=calc_phases["Melt",major_elements_without_H2O],
-              # trc=bpm$cL,
-              # H2O=calc_phases["Melt","H2O"]),
-              # dont=character(0))
               calc_phases <- correctApMnzSatWithCa(
                 c0 = c0,
                 kd = kd.ppx,
                 temp = temp,
                 press = press,
                 calc_phases = calc_phases,
-                apatite_saturation = apatite_saturation,
+                apatite_saturation = apatite_saturation_ApMnz,
                 major_elements = major_elements,
                 Xmz = as.numeric(Xmz)
               )
