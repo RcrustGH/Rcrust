@@ -891,10 +891,19 @@ shinyServer(function(input, output, session) {
           )
         }
         if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
+          if (!exists_and_numeric(input$D_ApMelt_LREE)) {
+            reactive_message$data <- paste0("Please enter a numeric value under D Ap/Melt LREE")
+            return(reactive_message$data)
+          }
+          if (!exists_and_numeric(input$Xmz)) {
+            reactive_message$data <- paste0("Please enter a numeric value under Xmz")
+            return(reactive_message$data)
+          }
           saturation_input <- paste0(
             saturation_input,
             "apatite_saturation_ApMnz<-", pasteq(input$apatite_saturation_ApMnz), "\n",
-            "Xmz<-", pasteq(input$Xmz), "\n"
+            "Xmz<-", paste0(input$Xmz), "\n",
+            "D_ApMelt_LREE<-", paste0(input$D_ApMelt_LREE), "\n"
           )
         }
       }
@@ -1228,7 +1237,7 @@ shinyServer(function(input, output, session) {
       }
       # Values to load
       # Sean-tag
-      load_variables <- c("x_n" = "inp", "y_n" = "inp", "n_pt_def" = "reactive", "n_comp_trans" = "reactive", "bulk_def_file" = "checkbox", "set_oxygen_fugacity" = "checkbox", "calculate_traces" = "checkbox", "apply_trace_correction" = "select", "Xmz" = "inp", "apatite_saturation_Ap" = "select", "apatite_saturation_ApMnz" = "select", "major_elements" = "reactive_select", "trace_elements" = "reactive_select", "kd_file" = "inp", "n_bulk_def" = "reactive", "bulk_file" = "inp", "ph_add" = "checkbox", "n_ph_add_def" = "reactive", "ph_extr" = "checkbox", "reequilibrate_steps" = "checkbox", "n_ph_extr_def" = "reactive", "thermodynamic_data_file" = "inp", "saturated_components" = "inp", "saturated_phase_components" = "inp", "independent_potential_fugacity_activity" = "inp", "calculate_activities" = "checkbox", "G_pure_phases" = "inp", "exclude_phases" = "inp", "component_packet" = "checkbox", "cp_components" = "reactive", "print_meem" = "checkbox", "export_meemum_output" = "checkbox", "end_of_calc" = "inp", "solution_models_file" = "reactive", "perplex_option_file" = "inp", "meemum_path" = "inp", "phase_aliases" = "inp", "PAM_compilation" = "inp", "compile_PAM" = "checkbox")
+      load_variables <- c("x_n" = "inp", "y_n" = "inp", "n_pt_def" = "reactive", "n_comp_trans" = "reactive", "bulk_def_file" = "checkbox", "set_oxygen_fugacity" = "checkbox", "calculate_traces" = "checkbox", "apply_trace_correction" = "select", "Xmz" = "inp", "D_ApMelt_LREE" = "inp", "apatite_saturation_Ap" = "select", "apatite_saturation_ApMnz" = "select", "major_elements" = "reactive_select", "trace_elements" = "reactive_select", "kd_file" = "inp", "n_bulk_def" = "reactive", "bulk_file" = "inp", "ph_add" = "checkbox", "n_ph_add_def" = "reactive", "ph_extr" = "checkbox", "reequilibrate_steps" = "checkbox", "n_ph_extr_def" = "reactive", "thermodynamic_data_file" = "inp", "saturated_components" = "inp", "saturated_phase_components" = "inp", "independent_potential_fugacity_activity" = "inp", "calculate_activities" = "checkbox", "G_pure_phases" = "inp", "exclude_phases" = "inp", "component_packet" = "checkbox", "cp_components" = "reactive", "print_meem" = "checkbox", "export_meemum_output" = "checkbox", "end_of_calc" = "inp", "solution_models_file" = "reactive", "perplex_option_file" = "inp", "meemum_path" = "inp", "phase_aliases" = "inp", "PAM_compilation" = "inp", "compile_PAM" = "checkbox")
       # load reactive stores
       if (exists("pt_definitions")) {
         pt_definitions_r$data <- pt_definitions
@@ -1441,6 +1450,16 @@ shinyServer(function(input, output, session) {
           if (!any(input$trace_elements == "P2O5")) {
             reactive_message$data <- paste0("P2O5 not selected under trace elements for saturation corrections")
             return(reactive_message$data)
+          }
+          if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
+            if (!exists_and_numeric(input$D_ApMelt_LREE)) {
+              reactive_message$data <- paste0("Please enter a numeric value under D Ap/Melt LREE")
+              return(reactive_message$data)
+            }
+            if (!exists_and_numeric(input$Xmz)) {
+              reactive_message$data <- paste0("Please enter a numeric value under Xmz")
+              return(reactive_message$data)
+            }
           }
         }
       }

@@ -178,7 +178,8 @@ if (sys.nframe() == 0L) {
       source("init_activities.r") # Gibbs enthalpies for activity calculations
     }
     # Sean-tag:
-    source("apSaturation.r") # Apatite saturation calculations
+    source("apSaturation.r") # Saturation calculations involving apatite
+    source("Rcrust_functions.r")
   })
   # Set number of cores for parallel computation (TODO Caleb)
   # core_count<-detectCores()

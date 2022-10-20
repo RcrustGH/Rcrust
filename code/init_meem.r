@@ -3,20 +3,6 @@
 #  Create a meemum build file
 #
 ############################################
-# fixtag - this is repeated in server.r or else it doesnt find the function, maybe write a package of function that can be fecthed with ::
-exists_and_numeric <- function(x) {
-  chk <- try(x, silent = TRUE)
-  if (class(chk) == "try-error") {
-    return(FALSE)
-  } else {
-    if (is.na(as.numeric(chk))) {
-      return(FALSE)
-    } else {
-      return(TRUE)
-    }
-  }
-}
-
 cat("Creating meemum build file...\n")
 thermo_in <- readLines(paste0(gsub("/code", "/data", getwd()), "/", thermodynamic_data_file))
 comp_start <- grep("begin_components", thermo_in)

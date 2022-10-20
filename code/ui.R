@@ -131,12 +131,21 @@ shinyUI(
                         selectize = TRUE
                       )
                     )
+                  ),
+                  fixedRow(
+                    column(4,
+                      textInput(inputId = "Xmz", label = "Xmz (mole ratio LREE)", value = "0.83"),
+                    ),
+                    column(4,
+                      offset = 2,
+                      textInput(inputId = "D_ApMelt_LREE", label = "D Ap/Melt LREE")
+                    )
                   )
                 ),
-                conditionalPanel(
-                  "input.apply_trace_correction == \"Apatite & Monazite Saturation\"",
-                  textInput("Xmz", "Xmz (mole ratio LREE)", value = "0.83")
-                ),
+                # conditionalPanel(
+                #   "input.apply_trace_correction == \"Apatite & Monazite Saturation\"",
+                #   textInput("Xmz", "Xmz (mole ratio LREE)", value = "0.83")
+                # ),
                 conditionalPanel(
                   "input.apply_trace_correction == \"Apatite saturation\"",
                   selectInput("apatite_saturation_Ap", "Apatite saturation options",
