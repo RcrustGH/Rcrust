@@ -27,22 +27,6 @@
   rownames(foo) <- avname
   return(foo)
 }
-# Coded by Sean Hoffman, 2021
-# General function to return the molar A/CNK ratio of comp.
-# Function accepts a vector object that must be named as component oxides (including Al2O3, CaO, Na2O, K2O), wt.% units
-calcACNK <- function(comp) {
-  mwAl2O3 <- 101.96128
-  mwCaO <- 56.0774
-  mwNa2O <- 61.97894
-  mwK2O <- 94.19600
-  # Resolving case-sensitive components.
-  Al <- comp[[which(toupper(names(comp)) == "AL2O3")]]
-  Ca <- comp[[which(toupper(names(comp)) == "CAO")]]
-  Na <- comp[[which(toupper(names(comp)) == "NA2O")]]
-  K <- comp[[which(toupper(names(comp)) == "K2O")]]
-  ACNK <- (Al / mwAl2O3) / ((Ca / mwCaO) + (Na / mwNa2O) + (K / mwK2O))
-  return(ACNK)
-}
 # function-def: exists_and_numeric(x)
 exists_and_numeric <- function(x) {
   chk <- try(x, silent = TRUE)
@@ -175,19 +159,19 @@ substrRight <- function(x, n) {
 phase_abundance <- function(crust, axis, path = 1, p_a = 1, p_b = p_a, path_label = "Point", input_pt = NULL) {
   # Header
   outname <- switch(axis,
-                    x = paste0("Phase adundance vs ", path_label, " for {", p_a, ";", path, "} to {", p_b, ";", path, "}"),
-                    y = paste0("Phase adundance vs ", path_label, " for {", path, ";", p_a, "} to {", path, ";", p_b, "}")
+    x = paste0("Phase adundance vs ", path_label, " for {", p_a, ";", path, "} to {", p_b, ";", path, "}"),
+    y = paste0("Phase adundance vs ", path_label, " for {", path, ";", p_a, "} to {", path, ";", p_b, "}")
   )
   # Abundance rows
   switch(axis,
-         x = {
-           pnt_y <- "path"
-           pnt_x <- "p_i"
-         },
-         y = {
-           pnt_y <- "p_i"
-           pnt_x <- "path"
-         }
+    x = {
+      pnt_y <- "path"
+      pnt_x <- "p_i"
+    },
+    y = {
+      pnt_y <- "p_i"
+      pnt_x <- "path"
+    }
   )
   all_phases <- NULL
   for (p_i in p_a:p_b) {
@@ -218,8 +202,8 @@ phase_abundance <- function(crust, axis, path = 1, p_a = 1, p_b = p_a, path_labe
   if (!path_label == "Point") {
     if (path_label == "Pressure(kbar)" | path_label == "Temperature(C)") {
       switch(path_label,
-             "Pressure(kbar)" = slct <- 1,
-             "Temperature(C)" = slct <- 2
+        "Pressure(kbar)" = slct <- 1,
+        "Temperature(C)" = slct <- 2
       )
       if (!is.null(input_pt)) {
         col_nms <- NULL
@@ -802,11 +786,9 @@ eval_expr <- function(expr, calc_phases = calc_phases, crust = crust) {
   }
   return(a)
 }
-#rename kf
+# rename kf
 renameFsp <- function(all_elements, calc_phases) {
   if (length(intersect(toupper(all_elements), c("CAO", "K2O"))) == 2) {
-    # for(ph in which(rownames(calc_phases)=="Fsp")){
-    # Mod-tag: changed to search for rownames containing Fsp instead of matching.
     for (ph in grep("Fsp", rownames(calc_phases))) {
       CaO_pos <- which(toupper(names(calc_phases[ph, ])) == "CAO")
       K2O_pos <- which(toupper(names(calc_phases[ph, ])) == "K2O")
@@ -821,4 +803,50 @@ renameFsp <- function(all_elements, calc_phases) {
     }
   }
   return(calc_phases)
+}
+# normalise totals in calc_phases
+# mass, wt%, vol%, mol%
+normTotals <- function(calc_phases, c0, roundDigits = 5) {
+  br <- which(rownames(calc_phases) == "Bulk_rs") - 1
+  # mass
+  if (any(colnames(calc_phases) == "mass")) {
+    calc_phases[1:br, "mass"] <- calc_phases[1:br, "mass"] / sum(calc_phases[1:br, "mass"]) * c0["mass"]
+    calc_phases["Bulk_rs", "mass"] <- c0["mass"]
+    calc_phases[1:br, "mass"] <- round(calc_phases[1:br, "mass"], roundDigits)
+  }
+  # wt%
+  if (any(colnames(calc_phases) == "wt%")) {
+    calc_phases[1:br, "wt%"] <- calc_phases[1:br, "mass"] / sum(calc_phases[1:br, "mass"]) * 100
+    calc_phases["Bulk_rs", "wt%"] <- 100
+    calc_phases[1:br, "wt%"] <- round(calc_phases[1:br, "wt%"], roundDigits)
+  }
+  # vol%
+  if (any(colnames(calc_phases) == "vol%")) {
+    volume <- calc_phases[1:br, "mass"] / calc_phases[1:br, "Density(kg/m3)"]
+    calc_phases[1:br, "vol%"] <- volume / sum(volume) * 100
+    calc_phases["Bulk_rs", "vol%"] <- 100
+    calc_phases[1:br, "vol%"] <- round(calc_phases[1:br, "vol%"], roundDigits)
+  }
+  # mol%
+  if (any(colnames(calc_phases) == "mol%")) {
+    calc_phases[1:br, "mol%"] <- calc_phases[1:br, "mol"] / sum(calc_phases[1:br, "mol"]) * 100
+    calc_phases["Bulk_rs", "mol%"] <- 100
+    calc_phases[1:br, "mol%"] <- round(calc_phases[1:br, "mol%"], roundDigits)
+  }
+  return(calc_phases)
+}
+# General function to return the molar A/CNK ratio of comp.
+# Function accepts a vector object that must be named as component oxides (including Al2O3, CaO, Na2O, K2O), wt.% units
+calcACNK <- function(comp) {
+  mwAl2O3 <- 101.96128
+  mwCaO <- 56.0774
+  mwNa2O <- 61.97894
+  mwK2O <- 94.19600
+  # Resolving case-sensitive components.
+  Al <- comp[[which(toupper(names(comp)) == "AL2O3")]]
+  Ca <- comp[[which(toupper(names(comp)) == "CAO")]]
+  Na <- comp[[which(toupper(names(comp)) == "NA2O")]]
+  K <- comp[[which(toupper(names(comp)) == "K2O")]]
+  ACNK <- (Al / mwAl2O3) / ((Ca / mwCaO) + (Na / mwNa2O) + (K / mwK2O))
+  return(ACNK)
 }
