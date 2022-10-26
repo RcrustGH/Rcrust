@@ -1,51 +1,4 @@
 # apSaturation.r written by Sean Hoffman, 2021-2022
-# Mod-tag: .wtd.add function should be taken out of this file and placed into a useful functions file
-#############################################
-#
-# Ancillary function to merge several lines (by mass)
-#
-############################################
-.wtd.add <- function(thelines, prop = "mass", avname = "Averaged") {
-  if (nrow(thelines) == 1) {
-    foo <- thelines
-  } else {
-    # Two sets of cols
-    if (exists_and_true(calc_mol)) {
-      extensive.cn <- c("wt%", "vol%", "mol%", "mol") # Extensive properties (mass dependant) -- add the others if required
-    } else {
-      extensive.cn <- c("wt%")
-    }
-    intensive.cn <- setdiff(colnames(thelines), c(prop, extensive.cn))
-    foo <- matrix(rep(0, length(colnames(thelines))), nrow = 1)
-    colnames(foo) <- colnames(thelines)
-    # Intensive
-    foo[, intensive.cn] <- thelines[, prop] %*% thelines[, intensive.cn, drop = F] / sum(thelines[, prop])
-    # Extensive
-    foo[, prop] <- sum(thelines[, prop])
-    if (!length(intersect(extensive.cn, thelines)) == 0) {
-      foo[, extensive.cn] <- colSums(thelines[, extensive.cn])
-    }
-  }
-  rownames(foo) <- avname
-  return(foo)
-}
-# Mod-tag: calcACNK function should be taken out of this file and placed into a useful functions file
-# Coded by Sean Hoffman, 2021
-# General function to return the molar A/CNK ratio of comp.
-# Function accepts a vector object that must be named as component oxides (including Al2O3, CaO, Na2O, K2O), wt.% units
-calcACNK <- function(comp) {
-  mwAl2O3 <- 101.96128
-  mwCaO <- 56.0774
-  mwNa2O <- 61.97894
-  mwK2O <- 94.19600
-  # Resolving case-sensitive components.
-  Al <- comp[[which(toupper(names(comp)) == "AL2O3")]]
-  Ca <- comp[[which(toupper(names(comp)) == "CAO")]]
-  Na <- comp[[which(toupper(names(comp)) == "NA2O")]]
-  K <- comp[[which(toupper(names(comp)) == "K2O")]]
-  ACNK <- (Al / mwAl2O3) / ((Ca / mwCaO) + (Na / mwNa2O) + (K / mwK2O))
-  return(ACNK)
-}
 # Apatite saturation functions. Each returns the saturation concentration of P2O5 (wt.%) in melt.
 # Functions correctApSatHW, correctApSatBea, correctApSatPich, correctApSatWolfLondon
 # adapted from saturation.r of GCDkit, Janousek 2006 http://www.gcdkit.org/
@@ -67,7 +20,7 @@ correctApSatHW <- function(Cmelt, T) {
 }
 # Correction for peraluminous systems by Bea et al., 1992
 correctApSatBea <- function(Cmelt, T) {
-  # equation uses mol A/CNK of melt, Si wt% of melt, Temperature (C)
+  # equation uses mol A/CNK of melt, Si wt% of melt, Temperature (C) (function accepts T in Kelvin)
   ACNK <- calcACNK(Cmelt)
   # Harrison and Watson (1984)
   P2O5.HW <- correctApSatHW(Cmelt, T)
@@ -116,6 +69,29 @@ correctMnzSatStepanov <- function(press, temp, Cmelt, Xmz = 0.83) {
   # Stepanov, 2012
   return(exp(16.16 + (0.23 * sqrt(H2O)) - (11494 / temp) - (19.4 * (press / temp)) + log(Xmz)))
 }
+# Function to call apatite saturation function and return concentration of P2O5 in melt
+getApSat <- function(apatite_saturation, Cmelt, temp) {
+  # apatite_saturation is the choice of saturation equation
+  # Cmelt is the composition of the melt (vector)
+  # temp is temperature in Kelvin
+  switch(apatite_saturation,
+    "Harrison & Watson 1984" = correctApSatHW(
+      Cmelt = Cmelt,
+      T = temp
+    ),
+    "H&W with Bea et al. 1992" = correctApSatBea(
+      Cmelt = Cmelt,
+      T = temp
+    ),
+    "H&W with Pichavant et al. 1992" = correctApSatPich(
+      Cmelt = Cmelt,
+      T = temp
+    ),
+    "Wolf & London 1994" = correctApSatWolfLondon(
+      Cmelt = Cmelt
+    )
+  )
+}
 # correctApSat written by Sean Hoffman, 2021
 correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major_elements) {
   # Mod-tag: Should change variable names to those used in description in Thesis/article.
@@ -131,24 +107,11 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
   counter <- 1
   if (any(rownames(calc_phases) == "Melt")) {
     # Melt_P is melt P2O5 wt% required to saturate with respect to apatite
-    if (apatite_saturation == "Harrison & Watson 1984") {
-      Melt_P <- correctApSatHW(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "H&W with Bea et al. 1992") {
-      Melt_P <- correctApSatBea(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "H&W with Pichavant et al. 1992") {
-      Melt_P <- correctApSatPich(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "Wolf & London 1994") {
-      Melt_P <- correctApSatWolfLondon(Cmelt = calc_phases["Melt", major_elements])
-    }
+    Melt_P <- getApSat(
+      apatite_saturation = apatite_saturation,
+      Cmelt = calc_phases["Melt", major_elements],
+      temp = temp + 273.15
+    )
     # 1.2
     # Multiply Melt_P/100 by Melt wt% to get P2O5 wt% of bulk to saturate Melt with respect to apatite
     P_Melt <- calc_phases["Melt", "wt%"] * Melt_P / 100
@@ -213,24 +176,11 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
     if (!continue) {
       if (any(rownames(calc_phases) == "Melt")) {
         # calc P_Melt
-        if (apatite_saturation == "Harrison & Watson 1984") {
-          Melt_P <- correctApSatHW(
-            Cmelt = calc_phases["Melt", major_elements],
-            temp + 273.15
-          )
-        } else if (apatite_saturation == "H&W with Bea et al. 1992") {
-          Melt_P <- correctApSatBea(
-            Cmelt = calc_phases["Melt", major_elements],
-            temp + 273.15
-          )
-        } else if (apatite_saturation == "H&W with Pichavant et al. 1992") {
-          Melt_P <- correctApSatPich(
-            Cmelt = calc_phases["Melt", major_elements],
-            temp + 273.15
-          )
-        } else if (apatite_saturation == "Wolf & London 1994") {
-          Melt_P <- correctApSatWolfLondon(Cmelt = calc_phases["Melt", major_elements])
-        }
+        Melt_P <- getApSat(
+          apatite_saturation = apatite_saturation,
+          Cmelt = calc_phases["Melt", major_elements],
+          temp = temp + 273.15
+        )
         # Multiply Melt_P/100 by Melt wt% to get P2O5 wt% of bulk to saturate Melt
         P_Melt <- calc_phases["Melt", "wt%"] * Melt_P / 100
       } else { # subsolidus calculation
@@ -348,47 +298,21 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
     calc_phases["Ap", "mol"] <- aa[, "mass"] / (aa[, Ca] / 100 * 56.0774 + aa[, "P2O5"] / 100 * 141.9445)
   }
   # browser()
-  # floating point errors may accumulate, neatening output:
-  br <- which(rownames(calc_phases) == "Bulk_rs") - 1
-  if (sum(calc_phases[1:br, "mass"]) != as.numeric(c0["mass"])) {
-    calc_phases[1:br, "mass"] <- calc_phases[1:br, "mass"] / sum(calc_phases[1:br, "mass"]) * c0["mass"]
-  }
-  calc_phases[1:br, "mass"] <- calc_phases[1:br, "mass"] / sum(calc_phases[1:br, "mass"]) * c0["mass"]
-  calc_phases["Bulk_rs", "mass"] <- 100
-  # wt%
-  calc_phases[1:br, "wt%"] <- calc_phases[1:br, "mass"] / sum(calc_phases[1:br, "mass"]) * 100
-  calc_phases["Bulk_rs", "wt%"] <- 100
-  # vol%
-  volume <- calc_phases[1:br, "mass"] / calc_phases[1:br, "Density(kg/m3)"]
-  calc_phases[1:br, "vol%"] <- volume / sum(volume) * 100
-  calc_phases["Bulk_rs", "vol%"] <- 100
-  # mol%
-  calc_phases[1:br, "mol%"] <- calc_phases[1:br, "mol"] / sum(calc_phases[1:br, "mol"]) * 100
-  calc_phases["Bulk_rs", "mol%"] <- 100
-  #renaming feldspars
+  # neatening output:
+  calc_phases <- normTotals(calc_phases, c0)
+  calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
+  calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
+  # renaming feldspars
   calc_phases <- renameFsp(all_elements, calc_phases)
   # Adding P2O5 saturation value and accuracy value of P2O5 saturation in melt
   # calc P_Sat
   if (any(rownames(calc_phases) == "Melt")) {
     # calc P_Melt
-    if (apatite_saturation == "Harrison & Watson 1984") {
-      Melt_P <- correctApSatHW(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "H&W with Bea et al. 1992") {
-      Melt_P <- correctApSatBea(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "H&W with Pichavant et al. 1992") {
-      Melt_P <- correctApSatPich(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "Wolf & London 1994") {
-      Melt_P <- correctApSatWolfLondon(Cmelt = calc_phases["Melt", major_elements])
-    }
+    Melt_P <- getApSat(
+      apatite_saturation = apatite_saturation,
+      Cmelt = calc_phases["Melt", major_elements],
+      temp = temp + 273.15
+    )
     # Multiply Melt_P/100 by Melt wt% to get P2O5 wt% of bulk to saturate Melt
     P_Melt <- calc_phases["Melt", "wt%"] * Melt_P / 100
   } else {
@@ -410,38 +334,28 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
   }
   return(calc_phases)
 }
+# correctApMnzSatWithCa written by Sean Hoffman, 2022
 correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_saturation, major_elements, Xmz, D_ApMelt_LREE) {
   # Code for calculating distribution of P and LREE between melt/apatite/monazite, Ca to apatite.
   # Mod-tag: There is no subsolidus routine. For apatite alone, we assume that all P is in apatite. We probably can't assume this for Ap-Mnz routine.
   # Mod-tag: isolating calcium makes the function un-detachable from Rcrust. Can make a more basic function that does not isolate calcium.
-  LREE_Sat <- correctMnzSatStepanov(press = press, temp = (temp + 273.15), Cmelt = calc_phases["Melt", ], Xmz = Xmz)
-  if (apatite_saturation == "Harrison & Watson 1984") {
-    P_Sat <- correctApSatHW(
-      Cmelt = calc_phases["Melt", major_elements],
-      temp + 273.15
-    )
-  } else if (apatite_saturation == "H&W with Bea et al. 1992") {
-    P_Sat <- correctApSatBea(
-      Cmelt = calc_phases["Melt", major_elements],
-      temp + 273.15
-    )
-  } else if (apatite_saturation == "H&W with Pichavant et al. 1992") {
-    P_Sat <- correctApSatPich(
-      Cmelt = calc_phases["Melt", major_elements],
-      temp + 273.15
-    )
-  } else if (apatite_saturation == "Wolf & London 1994") {
-    P_Sat <- correctApSatWolfLondon(Cmelt = calc_phases["Melt", major_elements])
-  }
-  # LREE are La, Ce, Pr, Nd, Pm, Sm, Gd
+  LREE_Sat <- correctMnzSatStepanov(
+    press = press,
+    temp = (temp + 273.15),
+    Cmelt = calc_phases["Melt", ],
+    Xmz = Xmz
+  )
+  P_Sat <- getApSat(
+    apatite_saturation = apatite_saturation,
+    Cmelt = calc_phases["Melt", major_elements],
+    temp = temp + 273.15
+  )
+  # LREE are La, Ce, Pr, Nd, Pm, Sm
   # P is worked with as P2O5 wt%
   # LREE_Sat is the sum concentration of LREE in LREE saturated Melt (ppm)
-  # LREE_Sat is first calculated from a monazite saturation equation, such as Montel, (1993), or Stepanov et al., (2012).
-  # in run.Rcrust.R, monazite saturation function returns the trace concentration of the liquid, mz$cL.
-  # The sum of LREE can be calculated from this variable, assuming we used Montel, (1993) and not Stepanov et al., (2012).
+  # LREE_Sat is first calculated from a monazite saturation equation, such as Stepanov et al., (2012).
   # P_Sat is the saturation concentration of phosphorus in melt. Could be named Melt_P, but kept to name used in Yakymchuck, (2017).
   # P_Sat is calculated by apatite saturation equations such as Harrison & Watson, (1984) and others
-  # Yakymchuck, (2017) uses Wolf and London (1994). Wolf and London (1994) produces similar results to Pichavant et al. (1992).
   # Ap_LREE is a fixed calculation of the concentration of LREE in apatite (ppm)
   # To calculate Ap_LREE, a partition coefficient of LREE for apatite/melt is needed. D_ApMelt_LREE
   # Yakymchuck, (2017) uses 10, the average partition coefficient of Prowatke & Klemme, (2006), for La partitioning between apatite/melt with concentrations of SiO2.
@@ -453,9 +367,7 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
   # This is passed to function from c0 or trace elements.
   # Mnz_P and Mnz_LREE are fixed stoichiometry of 29 wt.% P2O5 : 566794 ppm LREE in Mnz
   # Ap_P is a fixed stoichiometry of P2O5 in apatite, 41 wt%.
-  # LREE_names <- c("Th", "La", "Ce", "Pr", "Nd", "Sm", "Gd")
   LREE_names <- c("La", "Ce", "Pr", "Nd", "Sm")
-  # LREE_Sat <- sum(mz_cL[LREE_names])	#ppm
   # LREE_Mnz is first set to the sum of LREE of the Bulk.
   LREE_Bulk <- sum(c0[LREE_names]) # ppm
   LREE_Mnz <- LREE_Bulk # ppm
@@ -541,25 +453,12 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     }
     Old_LREE_Sat <- LREE_Sat
     if (any(rownames(calc_phases) == "Melt")) {
-      # calc P_Melt
-      if (apatite_saturation == "Harrison & Watson 1984") {
-        P_Sat <- correctApSatHW(
-          Cmelt = calc_phases["Melt", major_elements],
-          temp + 273.15
-        )
-      } else if (apatite_saturation == "H&W with Bea et al. 1992") {
-        P_Sat <- correctApSatBea(
-          Cmelt = calc_phases["Melt", major_elements],
-          temp + 273.15
-        )
-      } else if (apatite_saturation == "H&W with Pichavant et al. 1992") {
-        P_Sat <- correctApSatPich(
-          Cmelt = calc_phases["Melt", major_elements],
-          temp + 273.15
-        )
-      } else if (apatite_saturation == "Wolf & London 1994") {
-        P_Sat <- correctApSatWolfLondon(Cmelt = calc_phases["Melt", major_elements])
-      }
+      # calc P_Sat
+      P_Sat <- getApSat(
+        apatite_saturation = apatite_saturation,
+        Cmelt = calc_phases["Melt", major_elements],
+        temp = temp + 273.15
+      )
       LREE_Sat <- correctMnzSatStepanov(press = press, temp = (temp + 273.15), Cmelt = calc_phases["Melt", ], Xmz = Xmz)
     } else {
       # melt is not a stable phase after recalculation, return old_calc_phases
@@ -710,22 +609,12 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     calc_phases["Bulk_rs", "P2O5"] <- calc_phases["Bulk_rs", "P2O5"] + ((calc_phases["Melt", "P2O5"] / 100) * calc_phases["Melt", "mass"])
     # Total masses of phases and components balance out if the empty mass of Ap, Mnz is accounted for.
     # total mass + calc_phases["Ap","mass"]*0.05 + calc_phases["Mnz","mass"]*0.71
-    # formatting of output
-    br <- which(rownames(calc_phases) == "Bulk_rs")
-    calc_phases[1:br - 1, "mass"] <- calc_phases[1:br - 1, "mass"] / sum(calc_phases[1:br - 1, "mass"]) * 100
-    calc_phases["Bulk_rs", "mass"] <- 100
-    # Fixing wt%
-    calc_phases[1:br - 1, "wt%"] <- calc_phases[1:br - 1, "mass"] / sum(calc_phases[1:br - 1, "mass"]) * 100
-    calc_phases["Bulk_rs", "wt%"] <- 100
-    # Fixing vol%
-    volume <- calc_phases[1:br - 1, "mass"] / calc_phases[1:br - 1, "Density(kg/m3)"]
-    calc_phases[1:br - 1, "vol%"] <- volume / sum(volume) * 100
-    calc_phases["Bulk_rs", "vol%"] <- 100
-    # Fixing mol%
-    calc_phases[1:br - 1, "mol%"] <- calc_phases[1:br - 1, "mol"] / sum(calc_phases[1:br - 1, "mol"]) * 100
-    calc_phases["Bulk_rs", "mol%"] <- 100
-    calc_phases[1:br, 1:which(colnames(calc_phases) == "mol")] <- round(calc_phases[1:br, 1:which(colnames(calc_phases) == "mol")], 4)
-    #renaming feldspars
+    # neatening output
+    # browser()
+    calc_phases <- normTotals(calc_phases, c0)
+    calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
+    calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
+    # renaming feldspars
     calc_phases <- renameFsp(all_elements, calc_phases)
     if (!is.na(any(match(rownames(calc_phases), "H2O")))) {
       min.props <- calc_phases[c(
@@ -757,25 +646,17 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     )
     # Adding P2O5 saturation value and accuracy value of P2O5 saturation in melt
     # calc P_Sat
-    if (apatite_saturation == "Harrison & Watson 1984") {
-      P_Sat <- correctApSatHW(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "H&W with Bea et al. 1992") {
-      P_Sat <- correctApSatBea(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "H&W with Pichavant et al. 1992") {
-      P_Sat <- correctApSatPich(
-        Cmelt = calc_phases["Melt", major_elements],
-        temp + 273.15
-      )
-    } else if (apatite_saturation == "Wolf & London 1994") {
-      P_Sat <- correctApSatWolfLondon(Cmelt = calc_phases["Melt", major_elements])
-    }
-    LREE_Sat <- correctMnzSatStepanov(press = press, temp = (temp + 273.15), Cmelt = calc_phases["Melt", ], Xmz = Xmz)
+    P_Sat <- getApSat(
+      apatite_saturation = apatite_saturation,
+      Cmelt = calc_phases["Melt", major_elements],
+      temp = temp + 273.15
+    )
+    LREE_Sat <- correctMnzSatStepanov(
+      press = press,
+      temp = (temp + 273.15),
+      Cmelt = calc_phases["Melt", ],
+      Xmz = Xmz
+    )
     # P_Sat and LREE_Sat accuracy
     # should be slightly off due to coupling apatite and monazite saturation
     # normalisation may also affect the accuracy slightly
@@ -802,6 +683,3 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
   # Mod-tag: It might be more useful to return an object other than calc_phases so that the function could be used universally and manipulated without being attached to Rcrust. Calc_phases could then be formatted in run.Rcrust.
   return(calc_phases)
 }
-
-# Mod-tag: write a general function to add phases to calc_phases
-# return a formatted calc_phases.
