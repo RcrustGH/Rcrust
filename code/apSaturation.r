@@ -152,7 +152,6 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
         P_Ap <- P_Bulk - P_Melt
       }
     }
-    # Mod-tag: should continue case be here? To skip calc_phases if apatite does not saturate at all?
     # calculate required CaO for apatite
     Ca_Ap <- P_Ap / propP2O5 * propCaO
     if (!is.na(match("CaO", names(c0)))) {
@@ -225,7 +224,6 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
     }
     c0 <- store_c0
     counter <- counter + 1
-    # browser()
   }
   if (counter > 3) {
     final_P_Sat <- mid_P_Melt
@@ -297,7 +295,6 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
     calc_phases["Ap", "Density(kg/m3)"] <- 3190
     calc_phases["Ap", "mol"] <- aa[, "mass"] / (aa[, Ca] / 100 * 56.0774 + aa[, "P2O5"] / 100 * 141.9445)
   }
-  # browser()
   # neatening output:
   calc_phases <- normTotals(calc_phases, c0)
   calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
@@ -607,10 +604,7 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     calc_phases["Melt", "mass"] <- calc_phases["Melt", "mass"] + melt[, "mass"]
     calc_phases["Melt", "P2O5"] <- ((melt[, "mass"] * (melt[, "P2O5"] / 100)) / calc_phases["Melt", "mass"]) * 100
     calc_phases["Bulk_rs", "P2O5"] <- calc_phases["Bulk_rs", "P2O5"] + ((calc_phases["Melt", "P2O5"] / 100) * calc_phases["Melt", "mass"])
-    # Total masses of phases and components balance out if the empty mass of Ap, Mnz is accounted for.
-    # total mass + calc_phases["Ap","mass"]*0.05 + calc_phases["Mnz","mass"]*0.71
     # neatening output
-    # browser()
     calc_phases <- normTotals(calc_phases, c0)
     calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
     calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
@@ -658,8 +652,6 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
       Xmz = Xmz
     )
     # P_Sat and LREE_Sat accuracy
-    # should be slightly off due to coupling apatite and monazite saturation
-    # normalisation may also affect the accuracy slightly
     aa <- matrix(NaN, nrow(calc_phases), 2)
     colnames(aa) <- c("final_Sat", "final_Sat accuracy")
     calc_phases <- cbind(calc_phases, aa)
@@ -680,6 +672,5 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
       }
     }
   }
-  # Mod-tag: It might be more useful to return an object other than calc_phases so that the function could be used universally and manipulated without being attached to Rcrust. Calc_phases could then be formatted in run.Rcrust.
   return(calc_phases)
 }
