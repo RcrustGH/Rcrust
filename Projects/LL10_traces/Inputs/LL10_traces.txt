@@ -1,0 +1,99 @@
+###############
+#
+#   Rcrust input file
+#
+###############
+# Location of project files
+working_file<-"LL10_traces"
+projects_directory<-"C:/Rcrust/Projects"
+
+###############
+#
+#   Size data
+#
+###############
+# number of points in x and y directions
+x_n<-96
+y_n<-56
+
+###############
+#
+#   PT data
+#
+###############
+pt_def<-"input"                         #input,file
+pt_definitions<-list("{1;1}_{96;56}"=c("0.5+(y_i-1)*0.1","660+(x_i-1)*2"))
+
+###############
+#
+#   Bulk composition data 
+#
+###############
+comp_transformations<-c("")
+bulk_def<-"input"                         #input,file
+major_elements<-c("SIO2","TIO2","AL2O3","FEO","MNO","MGO","CAO","NA2O","K2O","H2O")
+set_oxygen_fugacity<-FALSE
+calculate_traces<-TRUE
+apply_trace_correction<-"None"
+Xmz<-"0.83"
+apatite_saturation<-"Harrison & Watson 1984"
+kd_file<-"yak.kd"
+trace_elements<-c("")
+bulk_definitions<-c(list("{1;1}_{96;56}"=c("68.28","0.41","14.31","2.64","0.05","0.81","1.39","2.71","5.22","4","242","462","14","3.1","15","1.1","28","64","37","7","87","25","149","4","5.7","0.9","5.2","0.8","4.8","26","0.9","2.6","0.4","2.3","0.3","40","16","100")))
+bulk_file<-""
+
+###############
+#
+#   Phase addition
+#
+###############
+ph_add<-FALSE
+ph_add_definitions<-c("")
+
+###############
+#
+#   Phase extraction
+#
+###############
+ph_extr<-FALSE
+reequilibrate_steps<-FALSE
+ph_extr_definitions<-c("")
+
+###############
+#
+#   Component packet
+#
+###############
+component_packet<-FALSE
+cp_components<-c("")
+cp_phases_<-c("")
+
+###############
+#
+#   Modelling Options
+#
+###############
+thermodynamic_data_file<-"hp11ver_686.dat"
+solution_models_file<-"solution_model_686.dat"
+meemum_path<-"meemum_686.exe"
+perplex_option_file<-"perplex_option_686.dat"
+use_sol_models<-c("Bi(W)","Chl(W)","Cpx(HP)","Crd(W)","Ctd(W)","Ep(HP11)","Fsp(C1)","Gt(W)","Ilm(WPH)","melt(W)","Mica(W)","Opx(W)","Sp(WPC)","St(W)")
+saturated_components<-""
+saturated_phase_components<-""
+independent_potential_fugacity_activity<-""
+exclude_phases<-c("mic","ilm","f3clim","ctdo")
+calculate_activities<-FALSE
+G_pure_phases<-""
+print_meem<-FALSE
+export_meemum_output<-FALSE
+end_of_calc<-"Return to Interface"
+
+###############
+#
+#   Output Options
+#
+###############
+phase_aliases<-""
+PAM_compilation<-""
+compile_PAM<-"FALSE"
+

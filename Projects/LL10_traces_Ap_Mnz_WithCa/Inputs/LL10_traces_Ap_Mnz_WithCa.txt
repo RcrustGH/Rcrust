@@ -1,0 +1,99 @@
+###############
+#
+#   Rcrust input file
+#
+###############
+# Location of project files
+working_file<-"LL10_traces_Ap_Mnz_WithCa"
+projects_directory<-"C:/Rcrust/Projects"
+
+###############
+#
+#   Size data
+#
+###############
+# number of points in x and y directions
+x_n<-""
+y_n<-""
+
+###############
+#
+#   PT data
+#
+###############
+pt_def<-"input"                         #input,file
+pt_definitions<-""
+
+###############
+#
+#   Bulk composition data 
+#
+###############
+comp_transformations<-c("")
+bulk_def<-"input"                         #input,file
+major_elements<-c("")
+set_oxygen_fugacity<-FALSE
+calculate_traces<-FALSE
+apply_trace_correction<-"None"
+Xmz<-"0.83"
+apatite_saturation<-"Harrison & Watson 1984"
+kd_file<-""
+trace_elements<-c("")
+bulk_definitions<-c("")
+bulk_file<-""
+
+###############
+#
+#   Phase addition
+#
+###############
+ph_add<-FALSE
+ph_add_definitions<-c("")
+
+###############
+#
+#   Phase extraction
+#
+###############
+ph_extr<-FALSE
+reequilibrate_steps<-TRUE
+ph_extr_definitions<-c("")
+
+###############
+#
+#   Component packet
+#
+###############
+component_packet<-FALSE
+cp_components<-c("")
+cp_phases_<-c("")
+
+###############
+#
+#   Modelling Options
+#
+###############
+thermodynamic_data_file<-"hp11ver.dat"
+solution_models_file<-"solution_model_673.dat"
+meemum_path<-"meemum.exe"
+perplex_option_file<-"perplex_option.dat"
+use_sol_models<-c("")
+saturated_components<-""
+saturated_phase_components<-""
+independent_potential_fugacity_activity<-""
+exclude_phases<-c("")
+calculate_activities<-FALSE
+G_pure_phases<-""
+print_meem<-FALSE
+export_meemum_output<-FALSE
+end_of_calc<-"Return to Interface"
+
+###############
+#
+#   Output Options
+#
+###############
+phase_aliases<-""
+PAM_compilation<-""
+compile_PAM<-"FALSE"
+

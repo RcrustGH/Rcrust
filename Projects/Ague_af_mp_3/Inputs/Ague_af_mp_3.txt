@@ -1,0 +1,97 @@
+###############
+#
+#   Rcrust input file
+#
+###############
+# Location of project files
+working_file<-"Ague_af_mp_3"
+projects_directory<-"C:/Rcrust/Projects"
+
+###############
+#
+#   Size data
+#
+###############
+# number of points in x and y directions
+x_n<-101
+y_n<-101
+
+###############
+#
+#   PT data
+#
+###############
+pt_def<-"input"                         #input,file
+pt_definitions<-list("{1;1}_{101;101}"=c("2+(y_i-1)*0.1","600+(x_i-1)*4"))
+
+###############
+#
+#   Bulk composition data 
+#
+###############
+comp_transformations<-c("")
+bulk_def<-"input"                         #input,file
+major_elements<-c("SIO2","TIO2","AL2O3","FEO","MNO","MGO","CAO","NA2O","K2O","H2O")
+set_oxygen_fugacity<-FALSE
+calculate_traces<-FALSE
+apply_trace_correction<-"None"
+kd_file<-""
+trace_elements<-c("")
+bulk_definitions<-c(list("{1;1}_{101;101}"=c("57.07","1.065","20.475","8.499","0.182","3.277","1.562","1.827","4.079","1.964","100")))
+bulk_file<-""
+
+###############
+#
+#   Phase addition
+#
+###############
+ph_add<-FALSE
+ph_add_definitions<-c("")
+
+###############
+#
+#   Phase extraction
+#
+###############
+ph_extr<-FALSE
+reequilibrate_steps<-TRUE
+ph_extr_definitions<-c("")
+
+###############
+#
+#   Component packet
+#
+###############
+component_packet<-FALSE
+cp_components<-c("")
+cp_phases_<-c("")
+
+###############
+#
+#   Modelling Options
+#
+###############
+thermodynamic_data_file<-"hp11ver_686.dat"
+solution_models_file<-"solution_model_686.dat"
+meemum_path<-"meemum_686.exe"
+perplex_option_file<-"perplex_option_686.dat"
+use_sol_models<-c("Bi(W)","Chl(W)","Cpx(HP)","Crd(W)","Ctd(W)","Ep(HP11)","Fsp(C1)","Gt(W)","Ilm(WPH)","melt(W)","Mica(W)","Opx(W)","Sp(WPC)","St(W)")
+saturated_components<-""
+saturated_phase_components<-""
+independent_potential_fugacity_activity<-""
+exclude_phases<-c("mic","ilm","f3clim","ctdo")
+calculate_activities<-FALSE
+G_pure_phases<-""
+print_meem<-FALSE
+export_meemum_output<-FALSE
+end_of_calc<-"Return to Interface"
+
+###############
+#
+#   Output Options
+#
+###############
+phase_aliases<-""
+PAM_compilation<-""
+compile_PAM<-""
+
