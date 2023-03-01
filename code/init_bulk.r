@@ -4,15 +4,34 @@
 #
 ############################################
 cat("Initializing bulk composition...\n")
-# fix-tag: error handling
-cat("does it exist? ", exists("calculate_traces"), "\n")
-if (calculate_traces) {
-  if (!require(GCDmodel)) {
-    install.packages(paste0(gsub("/code", "/plugins", getwd()), "/GCDmodel_0.4.7.zip"))
-  }
-  library(GCDmodel)
-  if (apply_trace_correction == "Apatite saturation") {
-    if (!kd_file == "") {
+if (exists("calculate_traces")) {
+  if (calculate_traces) {
+    if (!require(GCDmodel)) {
+      # try to install GCDmodel
+      install.packages(paste0(gsub("/code", "/plugins", getwd()), "/GCDmodel_0.5.02.zip"))
+      if (!require(GCDmodel)) {
+        for (i in 1:length(.libPaths())) {
+          # if install was unsuccessful, try to manually place package in library/libraries
+          try(
+            unzip(paste0(gsub("/code", "/plugins", getwd()), "/GCDmodel.zip"),
+              exdir = paste0(.libPaths()[[i]], ),
+              overwrite = TRUE
+            ),
+            silent = TRUE
+          )
+          if (dir.exists(paste0(.libPaths()[[i]], "/GCDmodel"))) {
+            cat("\nGCDmodel manually unpacked at ", paste0(.libPaths()[[i]], "/GCDmodel \n"))
+            break
+          }
+        }
+      }
+    }
+    library(GCDmodel)
+    if (apply_trace_correction == "Apatite saturation") {
+      if (!kd_file == "") {
+        kd.in <- read.table(paste0(gsub("/code", "/data/", getwd()), kd_file), sep = "\t")
+      }
+    } else {
       kd.in <- read.table(paste0(gsub("/code", "/data/", getwd()), kd_file), sep = "\t")
     }
   }
@@ -42,8 +61,13 @@ input_bulk <- rep(list(rep(list(NULL), x_n)), y_n)
 #
 ############################################
 ## Majors and traces
+# temporary setting to FALSE
+if (class(try(set_oxygen_fugacity, silent = TRUE)) == "try-error") {
+  set_oxygen_fugacity <- FALSE
+}
 if (set_oxygen_fugacity) {
-  all_elements <- c(major_elements, trace_elements, "log10(fugacity)")
+  # modtag log10(fugacity) is labelled here as O2 but input as log10(fugacity)
+  all_elements <- c(major_elements, trace_elements, "O2")
 } else {
   all_elements <- c(major_elements, trace_elements)
 }

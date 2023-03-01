@@ -133,7 +133,8 @@ shinyUI(
                     )
                   ),
                   fixedRow(
-                    column(4,
+                    column(
+                      4,
                       textInput(inputId = "Xmz", label = "Xmz (mole ratio LREE)", value = "0.83"),
                     ),
                     column(4,
@@ -142,10 +143,6 @@ shinyUI(
                     )
                   )
                 ),
-                # conditionalPanel(
-                #   "input.apply_trace_correction == \"Apatite & Monazite Saturation\"",
-                #   textInput("Xmz", "Xmz (mole ratio LREE)", value = "0.83")
-                # ),
                 conditionalPanel(
                   "input.apply_trace_correction == \"Apatite saturation\"",
                   selectInput("apatite_saturation_Ap", "Apatite saturation options",
@@ -245,7 +242,9 @@ shinyUI(
             textInput("independent_potential_fugacity_activity", "Independent potential/fugacity/activity"),
             checkboxInput("calculate_activities", "Calculate Activities?", value = FALSE),
             textInput("G_pure_phases", "Gibbs enthalpy of pure phases for activity calculation"),
-            textInput("exclude_phases", "Exclude phases")
+            textInput("exclude_phases", "Exclude phases"),
+            textInput("n_phases_to_rename", "Number of phases to rename"),
+            uiOutput("rename_phases_inputs")
           )
         ),
         # Sean-tag

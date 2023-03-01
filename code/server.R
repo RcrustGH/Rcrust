@@ -155,7 +155,7 @@ substrRight <- function(x, n) {
   substr(x, nchar(x) - n + 1, nchar(x))
 }
 # function-def:phase_abundance(crust,axis,path=1,p_a=1,p_b=p_a,path_label="Point",input_pt=NULL)
-phase_abundance <- function(crust, axis, path = 1, p_a = 1, p_b = p_a, path_label = "Point", input_pt = NULL) {
+phase_abundance <- function(crust, axis, path = 1, p_a = 1, p_b = p_a, path_label = "Point", input_pt = NULL, proportion = "mass") {
   # Header
   outname <- switch(axis,
     x = paste0("Phase adundance vs ", path_label, " for {", p_a, ";", path, "} to {", p_b, ";", path, "}"),
@@ -187,11 +187,11 @@ phase_abundance <- function(crust, axis, path = 1, p_a = 1, p_b = p_a, path_labe
   for (ph in all_phases) {
     abundace_phase <- NULL
     for (p_i in p_a:p_b) {
-      chk_phase <- try(crust[[eval(parse(text = pnt_y))]][[eval(parse(text = pnt_x))]][ph, "mass"], silent = TRUE)
+      chk_phase <- try(crust[[eval(parse(text = pnt_y))]][[eval(parse(text = pnt_x))]][ph, proportion], silent = TRUE)
       if (class(chk_phase) == "try-error") {
         abundace_phase <- c(abundace_phase, 0)
       } else {
-        abundace_phase <- c(abundace_phase, crust[[eval(parse(text = pnt_y))]][[eval(parse(text = pnt_x))]][ph, "mass"])
+        abundace_phase <- c(abundace_phase, crust[[eval(parse(text = pnt_y))]][[eval(parse(text = pnt_x))]][ph, proportion])
       }
     }
     abundance_rows <- rbind(abundance_rows, matrix(abundace_phase, 1))
@@ -277,7 +277,12 @@ PAM_calc <- function(crust, PAM_system, compile_PAM = FALSE, PAM_compilation = N
   PAM_data <- get_PAM_names(crust, PAM_system)
   PAM <- PAM_data[[2]]
   if (compile_PAM) {
-    validate(need(file.exists(paste0(sub("/code", "/Projects", getwd()), "/Compile/", PAM_compilation, " compilation legend.txt")), paste0(PAM_compilation, " compilation legend.txt not found in ", sub("/code", "/Projects", getwd()), "/Compile/", "\nPlease compile legend first")))
+    validate(need(
+      file.exists(
+        paste0(sub("/code", "/Projects", getwd()), "/Compile/", PAM_compilation, " compilation legend.txt")
+      ),
+      paste0(PAM_compilation, " compilation legend.txt not found in ", sub("/code", "/Projects", getwd()), "/Compile/", "\nPlease compile legend first")
+    ))
     compilation_names <- read.table(paste0(sub("/code", "/Projects", getwd()), "/Compile/", PAM_compilation, " compilation legend.txt"))
     class(compilation_names) <- "vector"
     PAM_names <- as.character(compilation_names[[2]])
@@ -344,7 +349,7 @@ PAM_calc <- function(crust, PAM_system, compile_PAM = FALSE, PAM_compilation = N
   return(list(PAM, PAM_legend, all_pres, pol, pol_id, compile_PAM_legend))
 }
 # function-def:data_file(crust,x_n=length(crust[[1]]),y_n=length(crust),choose_columns=NULL,choose_rows=NULL,choose_points="All")
-data_file <- function(crust, x_n = length(crust[[1]]), y_n = length(crust), choose_columns = NULL, choose_rows = NULL, choose_points = "All") {
+data_file <- function(crust, x_n = length(crust[[1]]), y_n = length(crust), choose_columns = NULL, choose_rows = NULL, choose_points = "All", assign_label) {
   #######################################################################
   # Outputs select_data list
   # Settings for outputing data_file
@@ -421,7 +426,10 @@ data_file <- function(crust, x_n = length(crust[[1]]), y_n = length(crust), choo
     choose_columns <- colnames(data_out)
   }
   if (any(choose_columns == "Brief")) {
-    choose_columns <- union(choose_columns[-which(choose_columns == "Brief")], c("ID", "Phase", "y_i", "x_i", "Pressure(kbar)", "Temperature(C)", "wt%", comps, "mass"))
+    choose_columns <- union(
+      choose_columns[-which(choose_columns == "Brief")],
+      c("ID", "Phase", "y_i", "x_i", "Pressure(kbar)", "Temperature(C)", "wt%", comps, "mass")
+    )
   }
   if (is.null(choose_rows)) {
     select_rows <- 1:nrow(data_out)
@@ -653,10 +661,11 @@ shinyServer(function(input, output, session) {
   all_elements_r <- reactiveValues(data = NULL)
   major_elements_r <- reactiveValues(data = NULL)
   trace_elements_r <- reactiveValues(data = NULL)
+  phases_to_rename_r <- reactiveValues(data = NULL)
   # mod-tag - this is a quick fix
   use_sol_models_r <- reactiveValues(data = NULL)
   # store_r contains output data from runs
-  store_r <- reactiveValues(crust_r = NULL, input_pt_r = NULL, input_bulk_r = NULL, all_elements_r = NULL, major_elements_r = NULL, trace_elements_r = NULL)
+  store_r <- reactiveValues(crust_r = NULL, input_pt_r = NULL, input_bulk_r = NULL, all_elements_r = NULL, major_elements_r = NULL, trace_elements_r = NULL, phases_to_rename_r = NULL)
   # initialise a passing message for error checking and reporting
   reactive_message <- reactiveValues(data = NULL)
   load_pt_r <- reactiveValues(data = NULL)
@@ -668,7 +677,6 @@ shinyServer(function(input, output, session) {
   if (!exists("trace_elements")) {
     trace_elements <- ""
   }
-  # if(!is.null(trace_elements)){if(trace_elements[1]==""){trace_elements<-NULL}}
   if (!exists("all_elements")) {
     all_elements <- c(major_elements, trace_elements)
     all_elements <- setdiff(all_elements, "")
@@ -771,7 +779,16 @@ shinyServer(function(input, output, session) {
             if (!to[[1]] == "Valid tuple") {
               return(paste0("Error in PT Definition:     ", to[[1]]))
             }
-            list_pt <- c(list_pt, paste0("\"", from[[2]], "_", to[[2]], "\"=c(", pasteq(eval(parse(text = paste0("input$pressure_", i)))), ",", pasteq(eval(parse(text = paste0("input$temperature_", i)))), ")"))
+            list_pt <- c(
+              list_pt,
+              paste0(
+                "\"", from[[2]], "_", to[[2]], "\"=c(",
+                pasteq(eval(parse(text = paste0("input$pressure_", i)))),
+                ",",
+                pasteq(eval(parse(text = paste0("input$temperature_", i)))),
+                ")"
+              )
+            )
           }
           pt_definitions <- paste0("list(", paste0(list_pt, collapse = ","), ")")
         } else {
@@ -1032,9 +1049,24 @@ shinyServer(function(input, output, session) {
               # seperate on quotes then on comma
               phases <- gsub('"', "", break_on_comma(eval(parse(text = paste0("input$ph_extr_phs_", i)))))
               for (j in 1:length(phases)) {
-                ph_extr_defs <- c(ph_extr_defs, paste0(pasteq(phases[j]), "=", pasteq(eval(parse(text = paste0("input$", '\"', "ph_extr_phs_", i, "_", sub_brackets(phases[j]), '\"'))))))
+                ph_extr_defs <- c(
+                  ph_extr_defs,
+                  paste0(
+                    pasteq(phases[j]),
+                    "=",
+                    pasteq(eval(parse(text = paste0("input$", '\"', "ph_extr_phs_", i, "_", sub_brackets(phases[j]), '\"'))))
+                  )
+                )
               }
-              list_ph_extr <- c(list_ph_extr, paste0("\"", from[[2]], "_", to[[2]], "\"=c(", paste0(c(ph_extr_con, ph_extr_defs), collapse = ","), ")"))
+              list_ph_extr <- c(
+                list_ph_extr,
+                paste0(
+                  "\"", from[[2]], "_", to[[2]],
+                  "\"=c(",
+                  paste0(c(ph_extr_con, ph_extr_defs), collapse = ","),
+                  ")"
+                )
+              )
             }
             ph_extr_definitions <- paste0("list(", paste0(list_ph_extr, collapse = ","), ")")
           } else {
@@ -1067,9 +1099,27 @@ shinyServer(function(input, output, session) {
               }
               # stores phases and amounts with respective components as cp_phases_[component]
               if (i > 1) {
-                cp_phases_combine <- c(cp_phases_combine, "\n", paste0("cp_phases_", names(cp_components_r$data[i]), "<-c(", paste0(cp_phases_defs, collapse = ","), ")"))
+                cp_phases_combine <- c(
+                  cp_phases_combine, "\n",
+                  paste0(
+                    "cp_phases_",
+                    names(cp_components_r$data[i]),
+                    "<-c(",
+                    paste0(cp_phases_defs, collapse = ","),
+                    ")"
+                  )
+                )
               } else {
-                cp_phases_combine <- c(cp_phases_combine, paste0("cp_phases_", names(cp_components_r$data[i]), "<-c(", paste0(cp_phases_defs, collapse = ","), ")"))
+                cp_phases_combine <- c(
+                  cp_phases_combine,
+                  paste0(
+                    "cp_phases_",
+                    names(cp_components_r$data[i]),
+                    "<-c(",
+                    paste0(cp_phases_defs, collapse = ","),
+                    ")"
+                  )
+                )
               }
             }
             # combined into a string to store in text file
@@ -1087,18 +1137,53 @@ shinyServer(function(input, output, session) {
             for (i in 1:as.numeric(length(packet_components))) {
               cp_phases_defs <- NULL
               # stores components and amounts to isolate from each
-              list_cp_isolate <- c(list_cp_isolate, paste0("\"", packet_components[i], "\"=\"", eval(parse(text = paste0("input$cp_isolate_", i))), "\""))
+              list_cp_isolate <- c(
+                list_cp_isolate,
+                paste0(
+                  "\"",
+                  packet_components[i],
+                  "\"=\"",
+                  eval(parse(text = paste0("input$cp_isolate_", i))),
+                  "\""
+                )
+              )
               # phases to partition component into
               phases <- gsub('"', "", break_on_comma(eval(parse(text = paste0("input$cp_phases_", i)))))
               for (j in 1:length(phases)) {
                 # phases and corresponding values
-                cp_phases_defs <- c(cp_phases_defs, paste0(pasteq(phases[j]), "=", pasteq(eval(parse(text = paste0("input$", '\"', "cp_phases_", i, "_", sub_brackets(phases[j]), '\"'))))))
+                cp_phases_defs <- c(
+                  cp_phases_defs,
+                  paste0(
+                    pasteq(phases[j]),
+                    "=",
+                    pasteq(eval(parse(text = paste0("input$", '\"', "cp_phases_", i, "_", sub_brackets(phases[j]), '\"'))))
+                  )
+                )
               }
               # stores phases and amounts with respective components as cp_phases_[component]
               if (i > 1) {
-                cp_phases_combine <- c(cp_phases_combine, "\n", paste0("cp_phases_", packet_components[i], "<-c(", paste0(cp_phases_defs, collapse = ","), ")"))
+                cp_phases_combine <- c(
+                  cp_phases_combine,
+                  "\n",
+                  paste0(
+                    "cp_phases_",
+                    packet_components[i],
+                    "<-c(",
+                    paste0(cp_phases_defs, collapse = ","),
+                    ")"
+                  )
+                )
               } else {
-                cp_phases_combine <- c(cp_phases_combine, paste0("cp_phases_", packet_components[i], "<-c(", paste0(cp_phases_defs, collapse = ","), ")"))
+                cp_phases_combine <- c(
+                  cp_phases_combine,
+                  paste0(
+                    "cp_phases_",
+                    packet_components[i],
+                    "<-c(",
+                    paste0(cp_phases_defs, collapse = ","),
+                    ")"
+                  )
+                )
               }
             }
             # combined into a string to store in text file
@@ -1135,6 +1220,38 @@ shinyServer(function(input, output, session) {
         "cp_components<-c(", bl(list_cp_isolate), ")\n",
         bl(cp_packet_definitions), "\n"
       ) # End of component packet
+      if (input$n_phases_to_rename == "load") {
+        if (!all(phases_to_rename_r$data == "")) {
+          list_phases_to_rename <- NULL
+          for (i in 1:length(phases_to_rename_r$data)) {
+            list_phases_to_rename <- c(list_phases_to_rename, paste0("\"", names(phases_to_rename_r$data)[i], "\"=c(", pasteq(phases_to_rename_r$data[[i]]), ")"))
+          }
+          phases_to_rename <- paste0("list(", paste0(list_phases_to_rename, collapse = ","), ")")
+        } else {
+          phases_to_rename <- ""
+        }
+      } else {
+        if (!input$n_phases_to_rename == "") {
+          # Error validation
+          if (is.na(suppressWarnings(as.numeric(input$n_phases_to_rename)))) {
+            return("Error: Number of phases to rename must be numeric")
+          }
+          if (as.numeric(input$n_phases_to_rename) < 1) {
+            return("Error: Number of phases to rename must be greater than 0")
+          }
+          if (!as.numeric(input$n_phases_to_rename) %% 1 == 0) {
+            return("Error: Number of phases to rename must be a whole number")
+          }
+          list_phases_to_rename <- NULL
+          for (i in 1:as.numeric(input$n_phases_to_rename)) {
+            list_phases_to_rename <- c(list_phases_to_rename, paste0("\"", eval(parse(text = paste0("input$old_name_", i))), "~", eval(parse(text = paste0("input$new_name_", i))), "\"=c(", pasteq(eval(parse(text = paste0("input$condition_", i)))), ")"))
+          }
+          phases_to_rename <- paste0("list(", paste0(list_phases_to_rename, collapse = ","), ")")
+        } else {
+          phases_to_rename <- ""
+        }
+      }
+
       if (input$solution_models_file == "load") {
         if (!exists("solution_models_file")) {
           solution_models_file <- ""
@@ -1162,6 +1279,7 @@ shinyServer(function(input, output, session) {
         "independent_potential_fugacity_activity<-", pasteq(input$independent_potential_fugacity_activity), "\n",
         "exclude_phases<-c(", pasteq(break_on_comma(input$exclude_phases)), ")\n",
         "calculate_activities<-", input$calculate_activities, "\n",
+        "phases_to_rename<-c(", bl(phases_to_rename), ")\n",
         "G_pure_phases<-", pasteq(input$G_pure_phases), "\n",
         "print_meem<-", input$print_meem, "\n",
         "export_meemum_output<-", input$export_meemum_output, "\n",
@@ -1175,7 +1293,17 @@ shinyServer(function(input, output, session) {
       )
       # Compile all tabs into a page
       # Sean-tag
-      thepage <- c(w_file, w_size, w_pt, w_bulk_composition, w_phase_addition, w_phase_extraction, w_component_packet, w_modelling_options, w_output_options)
+      thepage <- c(
+        w_file,
+        w_size,
+        w_pt,
+        w_bulk_composition,
+        w_phase_addition,
+        w_phase_extraction,
+        w_component_packet,
+        w_modelling_options,
+        w_output_options
+      )
       # If directory doesnt exist, create it
       if (!dir.exists(paste0(projects_directory, "/", working_file))) {
         dir.create(paste0(projects_directory, "/", working_file))
@@ -1189,20 +1317,28 @@ shinyServer(function(input, output, session) {
       # Grab additional parameters if file already exists
       add_text <- NULL
       if (file.exists(paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"))) {
-        scanned <- scan(file = paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"), what = "character", sep = "\n", quiet = TRUE)
+        scanned <- scan(
+          file = paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"),
+          what = "character",
+          sep = "\n",
+          quiet = TRUE
+        )
         break_line <- which(scanned == "#   Additional Parameters")
         if (length(break_line) == 1) {
           add_text <- scanned[break_line:length(scanned)]
         }
       }
       # Save .txt file
-      write(c(thepage, add_text), file = paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"))
+      write(
+        c(thepage, add_text),
+        file = paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt")
+      )
       # Save workspace
       working_file <<- input$working_file
       save.image(file = paste0(projects_directory, "/", working_file, "/", working_file, ".RData"))
       # Return success message
       return(paste0("File saved to ", projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"))
-    } else {
+    } else { # error handing not passed
       # Return error message
       return(reactive_message$data)
     }
@@ -1237,7 +1373,47 @@ shinyServer(function(input, output, session) {
       }
       # Values to load
       # Sean-tag
-      load_variables <- c("x_n" = "inp", "y_n" = "inp", "n_pt_def" = "reactive", "n_comp_trans" = "reactive", "bulk_def_file" = "checkbox", "set_oxygen_fugacity" = "checkbox", "calculate_traces" = "checkbox", "apply_trace_correction" = "select", "Xmz" = "inp", "D_ApMelt_LREE" = "inp", "apatite_saturation_Ap" = "select", "apatite_saturation_ApMnz" = "select", "major_elements" = "reactive_select", "trace_elements" = "reactive_select", "kd_file" = "inp", "n_bulk_def" = "reactive", "bulk_file" = "inp", "ph_add" = "checkbox", "n_ph_add_def" = "reactive", "ph_extr" = "checkbox", "reequilibrate_steps" = "checkbox", "n_ph_extr_def" = "reactive", "thermodynamic_data_file" = "inp", "saturated_components" = "inp", "saturated_phase_components" = "inp", "independent_potential_fugacity_activity" = "inp", "calculate_activities" = "checkbox", "G_pure_phases" = "inp", "exclude_phases" = "inp", "component_packet" = "checkbox", "cp_components" = "reactive", "print_meem" = "checkbox", "export_meemum_output" = "checkbox", "end_of_calc" = "inp", "solution_models_file" = "reactive", "perplex_option_file" = "inp", "meemum_path" = "inp", "phase_aliases" = "inp", "PAM_compilation" = "inp", "compile_PAM" = "checkbox")
+      load_variables <- c(
+        "x_n" = "inp",
+        "y_n" = "inp",
+        "n_pt_def" = "reactive",
+        "n_comp_trans" = "reactive",
+        "n_phases_to_rename" = "reactive",
+        "bulk_def_file" = "checkbox",
+        "set_oxygen_fugacity" = "checkbox",
+        "calculate_traces" = "checkbox",
+        "apply_trace_correction" = "select",
+        "Xmz" = "inp",
+        "D_ApMelt_LREE" = "inp",
+        "apatite_saturation_Ap" = "select",
+        "apatite_saturation_ApMnz" = "select",
+        "major_elements" = "reactive_select",
+        "trace_elements" = "reactive_select",
+        "kd_file" = "inp", "n_bulk_def" = "reactive",
+        "bulk_file" = "inp", "ph_add" = "checkbox",
+        "n_ph_add_def" = "reactive",
+        "ph_extr" = "checkbox",
+        "reequilibrate_steps" = "checkbox",
+        "n_ph_extr_def" = "reactive",
+        "thermodynamic_data_file" = "inp",
+        "saturated_components" = "inp",
+        "saturated_phase_components" = "inp",
+        "independent_potential_fugacity_activity" = "inp",
+        "calculate_activities" = "checkbox",
+        "G_pure_phases" = "inp",
+        "exclude_phases" = "inp",
+        "component_packet" = "checkbox",
+        "cp_components" = "reactive",
+        "print_meem" = "checkbox",
+        "export_meemum_output" = "checkbox",
+        "end_of_calc" = "inp",
+        "solution_models_file" = "reactive",
+        "perplex_option_file" = "inp",
+        "meemum_path" = "inp",
+        "phase_aliases" = "inp",
+        "PAM_compilation" = "inp",
+        "compile_PAM" = "checkbox"
+      )
       # load reactive stores
       if (exists("pt_definitions")) {
         pt_definitions_r$data <- pt_definitions
@@ -1282,6 +1458,9 @@ shinyServer(function(input, output, session) {
       }
       if (exists("all_elements")) {
         all_elements_r$data <- all_elements
+      }
+      if (exists("phases_to_rename")) {
+        phases_to_rename_r$data <- phases_to_rename
       }
       # custom loads
       # bulk_def
@@ -1353,8 +1532,8 @@ shinyServer(function(input, output, session) {
         }
         if (load_variables[i] == "select") {
           if (exists(names(load_variables)[i])) {
-            updateSelectInput(session, inputId = names(load_variables)[i], selected = eval(parse(text = names(load_variables)[i])))
-            } else {
+            updateSelectInput(session, names(load_variables)[i], selected = eval(parse(text = names(load_variables)[i])))
+          } else {
             updateSelectInput(session, names(load_variables)[i], selected = "")
           }
         }
@@ -1469,7 +1648,12 @@ shinyServer(function(input, output, session) {
       source(paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"))
       # Run
       source("main.r")
-      reactive_message$data <- paste0("Calculation complete, Results saved to ", projects_directory, "/", working_file, "/", working_file, ".RData\n Select outputs throught the 'Outputs' tab")
+      reactive_message$data <- paste0(
+        "Calculation complete, Results saved to ",
+        projects_directory, "/",
+        working_file, "/",
+        working_file, ".RData\n Select outputs throught the 'Outputs' tab"
+      )
       # Save copy to directory
       if (FALSE) {
         copy_directory <<- "H:/Rcrust/Projects"
@@ -1621,7 +1805,16 @@ shinyServer(function(input, output, session) {
       data_in <- as.matrix(read.csv(paste(input$file_pt[4])))
       lines_all <- NULL
       for (line_no in 1:nrow(data_in)) {
-        line_i <- paste("\"{", data_in[line_no, 1], ";", data_in[line_no, 2], "}_{", data_in[line_no, 3], ";", data_in[line_no, 4], "}\"=c(\"", data_in[line_no, 5], "\",\"", data_in[line_no, 6], "\")", sep = "")
+        line_i <- paste(
+          "\"{",
+          data_in[line_no, 1], ";",
+          data_in[line_no, 2], "}_{",
+          data_in[line_no, 3], ";",
+          data_in[line_no, 4], "}\"=c(\"",
+          data_in[line_no, 5], "\",\"",
+          data_in[line_no, 6], "\")",
+          sep = ""
+        )
         if (line_no == 1) {
           lines_all <- paste("pt_definitions<-list(", line_i, sep = "")
         } else {
@@ -1711,7 +1904,21 @@ shinyServer(function(input, output, session) {
   # Component transformation
   observe({
     available_components <- NULL
-    suppressWarnings(qq_try <- try(scan(file = gsub("Rcrust/code", paste0("Rcrust/data/", input$thermodynamic_data_file), getwd()), what = "character", sep = "\n", quiet = TRUE), silent = TRUE))
+    suppressWarnings(
+      qq_try <- try(
+        scan(
+          file = gsub(
+            "Rcrust/code",
+            paste0("Rcrust/data/", input$thermodynamic_data_file),
+            getwd()
+          ),
+          what = "character",
+          sep = "\n",
+          quiet = TRUE
+        ),
+        silent = TRUE
+      )
+    )
     if (class(qq_try) != "try-error") {
       qq <- qq_try
       start_foo <- grep("begin_components", qq)
@@ -1790,9 +1997,29 @@ shinyServer(function(input, output, session) {
     # fix-tag: does not work if have multiple component transformations, scoping means we come here after first transformation is complete because we alter "current components"
     if (!input$n_comp_trans == "load") {
       if (any(input$major_elements == "load")) {
-        selectizeInput("major_elements", "Major elements", c(major_elements_r$data, setdiff(current_components_r$data, major_elements_r$data), "load"), selected = major_elements_r$data, multiple = TRUE)
+        selectizeInput(
+          "major_elements",
+          "Major elements",
+          c(
+            major_elements_r$data,
+            setdiff(current_components_r$data, major_elements_r$data),
+            "load"
+          ),
+          selected = major_elements_r$data,
+          multiple = TRUE
+        )
       } else {
-        selectizeInput("major_elements", "Major elements", c(input$major_elements, setdiff(current_components_r$data, input$major_elements), "load"), selected = input$major_elements, multiple = TRUE)
+        selectizeInput(
+          "major_elements",
+          "Major elements",
+          c(
+            input$major_elements,
+            setdiff(current_components_r$data, input$major_elements),
+            "load"
+          ),
+          selected = input$major_elements,
+          multiple = TRUE
+        )
       }
     }
   })
@@ -1967,7 +2194,16 @@ shinyServer(function(input, output, session) {
       data_in <- as.matrix(read.csv(paste(input$file_bulk[4])))
       lines_all <- NULL
       for (line_no in 1:nrow(data_in)) {
-        line_i <- paste("\"{", data_in[line_no, 1], ";", data_in[line_no, 2], "}_{", data_in[line_no, 3], ";", data_in[line_no, 4], "}\"=c(\"", paste(data_in[line_no, c(-1, -2, -3, -4)], collapse = "\",\""), "\")", sep = "")
+        line_i <- paste(
+          "\"{",
+          data_in[line_no, 1], ";",
+          data_in[line_no, 2], "}_{",
+          data_in[line_no, 3], ";",
+          data_in[line_no, 4], "}\"=c(\"",
+          paste(data_in[line_no, c(-1, -2, -3, -4)], collapse = "\",\""),
+          "\")",
+          sep = ""
+        )
         if (line_no == 1) {
           lines_all <- paste("bulk_definitions<-c(list(", line_i, sep = "")
         } else {
@@ -2016,6 +2252,7 @@ shinyServer(function(input, output, session) {
         NULL
       })
       fixedRow(
+        # Mod-tag: could use some commenting here.
         lapply(1:(as.numeric(def_num) * 5), function(i) {
           a <- 1
           ii <- i
@@ -2064,22 +2301,28 @@ shinyServer(function(input, output, session) {
   })
   # auto create phase addition inputs given number of phases
   observe({
-    if (all(!input$n_ph_add_def == "load", !is.null(input$n_ph_add_def), !input$n_ph_add_def == "", !input$n_ph_add_def == 0)) {
+    if (all(
+      !input$n_ph_add_def == "load",
+      !is.null(input$n_ph_add_def),
+      !input$n_ph_add_def == "",
+      !input$n_ph_add_def == 0
+    )) {
       lapply(1:input$n_ph_add_def, function(i) {
         eval(parse(text = paste0("output$ph_add_", i, "<-renderUI({
-	a<-i
-	chk_Phases<-try(eval(parse(text=paste0(\'input$ph_add_phs_\',a))),silent=TRUE)
+          a<-i
+          chk_Phases<-try(eval(parse(text=paste0(\'input$ph_add_phs_\',a))),silent=TRUE)
 					if(!is.null(chk_Phases)){
-					if(!chk_Phases==\"\"){
-					phases<-unlist(strsplit(chk_Phases,split=\",\"))
-						fixedRow(
-						lapply(1:(length(phases)), function(j) {
-						chk_in_ph<-try(ph_add_definitions_r$data[[a]][phases[j]],silent=TRUE)
-						if(class(chk_in_ph)==\"try-error\"){chk_in_ph<-NULL}
-						column(3,textInput(paste0(\'ph_add_phs_\',a,\'_\',phases[j]),phases[j],value=chk_in_ph))
-						}))
-						}}
-						})")))
+            if(!chk_Phases==\"\"){
+              phases<-unlist(strsplit(chk_Phases,split=\",\"))
+              fixedRow(
+                lapply(1:(length(phases)), function(j) {
+                chk_in_ph<-try(ph_add_definitions_r$data[[a]][phases[j]],silent=TRUE)
+                if(class(chk_in_ph)==\"try-error\"){chk_in_ph<-NULL}
+                column(3,textInput(paste0(\'ph_add_phs_\',a,\'_\',phases[j]),phases[j],value=chk_in_ph))
+              }))
+						}
+          }
+        })")))
       })
     }
   })
@@ -2112,7 +2355,16 @@ shinyServer(function(input, output, session) {
       data_in <- as.matrix(read.csv(paste(input$file_ph_add[4])))
       lines_all <- NULL
       for (line_no in 1:nrow(data_in)) {
-        line_i <- paste("\"{", data_in[line_no, 1], ";", data_in[line_no, 2], "}_{", data_in[line_no, 3], ";", data_in[line_no, 4], "}\"=c(condition=\"", data_in[line_no, 5], "\",", data_in[line_no, 6], ")", sep = "")
+        line_i <- paste(
+          "\"{",
+          data_in[line_no, 1], ";",
+          data_in[line_no, 2], "}_{",
+          data_in[line_no, 3], ";",
+          data_in[line_no, 4], "}\"=c(condition=\"",
+          data_in[line_no, 5], "\",",
+          data_in[line_no, 6], ")",
+          sep = ""
+        )
         if (line_no == 1) {
           lines_all <- paste("ph_add_definitions<-c(list(", line_i, sep = "")
         } else {
@@ -2174,7 +2426,16 @@ shinyServer(function(input, output, session) {
       data_in <- as.matrix(read.csv(paste(input$file_ph_extr[4])))
       lines_all <- NULL
       for (line_no in 1:nrow(data_in)) {
-        line_i <- paste("\"{", data_in[line_no, 1], ";", data_in[line_no, 2], "}_{", data_in[line_no, 3], ";", data_in[line_no, 4], "}\"=c(condition=\"", data_in[line_no, 5], "\",", data_in[line_no, 6], ")", sep = "")
+        line_i <- paste(
+          "\"{",
+          data_in[line_no, 1], ";",
+          data_in[line_no, 2], "}_{",
+          data_in[line_no, 3], ";",
+          data_in[line_no, 4], "}\"=c(condition=\"",
+          data_in[line_no, 5], "\",",
+          data_in[line_no, 6], ")",
+          sep = ""
+        )
         if (line_no == 1) {
           lines_all <- paste("ph_extr_definitions<-c(list(", line_i, sep = "")
         } else {
@@ -2193,6 +2454,7 @@ shinyServer(function(input, output, session) {
   })
   # Dyanmically use number of Phase Extraction definitions to create the correct number of From,To,P,T inputs
   output$ph_extr <- renderUI({
+    # Mod-tag: could use some commenting here
     if (input$n_ph_extr_def == "load") {
       if (all(ph_extr_definitions_r$data == "") | is.null(ph_extr_definitions_r$data)) {
         def_num <- ""
@@ -2280,26 +2542,32 @@ shinyServer(function(input, output, session) {
   # auto create phase extraction inputs given number of phases
   # remove phases<-unlist(strsplit(chk_Phases,split=\",\"))
   observe({
-    if (all(!input$n_ph_extr_def == "load", !is.null(input$n_ph_extr_def), !input$n_ph_extr_def == "", !input$n_ph_extr_def == 0)) {
+    if (all(
+      !input$n_ph_extr_def == "load",
+      !is.null(input$n_ph_extr_def),
+      !input$n_ph_extr_def == "",
+      !input$n_ph_extr_def == 0
+    )) {
       lapply(1:input$n_ph_extr_def, function(i) {
         eval(parse(text = paste0("output$ph_extr_", i, "<-renderUI({
-	a<-i
-	chk_Phases<-try(eval(parse(text=paste0(\'input$ph_extr_phs_\',a))),silent=TRUE)
+          a<-i
+          chk_Phases<-try(eval(parse(text=paste0(\'input$ph_extr_phs_\',a))),silent=TRUE)
 					if(!is.null(chk_Phases)){
 					if(!chk_Phases==\"\"){
 					     phases<-gsub(\'\"\',\"\",break_on_comma(chk_Phases))
 						fixedRow(
-						lapply(1:(length(phases)), function(j) {
-						chk_in_ph<-try(ph_extr_definitions_r$data[[a]][phases[j]],silent=TRUE)
-						if(class(chk_in_ph)==\"try-error\"){chk_in_ph<-NULL}
-						column(3,textInput(paste0(\'ph_extr_phs_\',a,\'_\',sub_brackets(phases[j])),phases[j],value=chk_in_ph))
-						}))
-						}}
-						})")))
+              lapply(1:(length(phases)), function(j) {
+                chk_in_ph<-try(ph_extr_definitions_r$data[[a]][phases[j]],silent=TRUE)
+                if(class(chk_in_ph)==\"try-error\"){chk_in_ph<-NULL}
+                column(3,textInput(paste0(\'ph_extr_phs_\',a,\'_\',sub_brackets(phases[j])),phases[j],value=chk_in_ph))
+              })
+            )
+          }}
+        })")))
       })
     }
   })
-  # Dyanmically use solution model file to build phase models selection
+  # Dynamically use solution model file to build phase models selection
   output$solution_models <- renderUI({
     if (input$solution_models_file == "load") {
       if (all(solution_models_file_r$data == "") | is.null(solution_models_file_r$data)) {
@@ -2348,7 +2616,11 @@ shinyServer(function(input, output, session) {
           if (class(chk_cp_isolate) == "try-error") {
             chk_cp_isolate <- NULL
           }
-          column(4, textInput(paste0("cp_isolate_", a), paste0("Proportion of component to isolate in ", break_on_comma(input$cp_components)[a]), value = chk_cp_isolate))
+          column(4, textInput(
+            paste0("cp_isolate_", a),
+            paste0("Proportion of component to isolate in ", break_on_comma(input$cp_components)[a]),
+            value = chk_cp_isolate
+          ))
         } else {
           if (ii == 2) {
             chk_cp_phases <- try(paste0(names(eval(parse(text = paste0("cp_phases_", names(cp_components_r$data[a]))))), collapse = ","), silent = TRUE)
@@ -2367,36 +2639,122 @@ shinyServer(function(input, output, session) {
   })
   # auto create component packet inputs given number of phases
   observe({
-    if (all(!input$cp_components == "load", !is.null(input$cp_components), !input$cp_components == "", !input$cp_components == 0)) {
+    if (all(
+      !input$cp_components == "load",
+      !is.null(input$cp_components),
+      !input$cp_components == "",
+      !input$cp_components == 0
+    )) {
       lapply(1:length(break_on_comma(input$cp_components)), function(i) {
         eval(parse(text = paste0("output$cp_packet_ui_ph_", i, "<-renderUI({
-	a<-i
-	chk_Phases<-try(eval(parse(text=paste0(\'input$cp_phases_\',a))),silent=TRUE)
+          a<-i
+          chk_Phases<-try(eval(parse(text=paste0(\'input$cp_phases_\',a))),silent=TRUE)
 					if(!is.null(chk_Phases)){
-					if(!chk_Phases==\"\"){
-					phases<-unlist(strsplit(chk_Phases,split=\",\"))
-						fixedRow(
-						lapply(1:(length(phases)), function(j) {
-						chk_in_cp_phases<-try(cp_phases_r$data[[a]][j],silent=TRUE)
-
-						if(class(chk_in_cp_phases)==\"try-error\"){chk_in_cp_phases<-NULL}
-						column(4,tags$div(title=\"Input as a percentage, numeric value, equation based on chemistry of phases, or type 'excess' to partition remainder in packet.\",
-						textInput(paste0(\'cp_phases_\',a,\'_\',phases[j]),phases[j],value=chk_in_cp_phases)))
-						}))
-						}}
-						})")))
+            if(!chk_Phases==\"\"){
+              phases<-unlist(strsplit(chk_Phases,split=\",\"))
+              fixedRow(
+                lapply(1:(length(phases)), function(j) {
+                  chk_in_cp_phases<-try(cp_phases_r$data[[a]][j],silent=TRUE)
+                  if(class(chk_in_cp_phases)==\"try-error\"){chk_in_cp_phases<-NULL}
+                  column(4,
+                    tags$div(title=\"Input as a percentage, numeric value, equation based on chemistry of phases, or type 'excess' to partition remainder in packet.\",
+                    textInput(paste0(\'cp_phases_\',a,\'_\',phases[j]),phases[j],value=chk_in_cp_phases))
+                  )
+                }
+              ))
+            }
+          }
+        })")))
       })
     }
   }) # end of component packet UI section
+
+  # Dyanmically use number of phases to rename to create the correct number of inputs
+  output$rename_phases_inputs <- renderUI({
+    if (input$n_phases_to_rename == "load") {
+      if (all(phases_to_rename_r$data == "") | is.null(phases_to_rename_r$data)) {
+        def_num <- ""
+      } else {
+        def_num <- length(phases_to_rename_r$data)
+      }
+      updateTextInput(session, "n_phases_to_rename", value = def_num)
+    } else {
+      def_num <- input$n_phases_to_rename
+    }
+    if (!(is.null(def_num) | def_num == "" | def_num == 0)) {
+      validate(if (is.na(suppressWarnings(as.numeric(def_num)))) {
+        "Error: Number of phases to rename must be numeric"
+      } else {
+        NULL
+      })
+      validate(if (as.numeric(def_num) < 1) {
+        "Error: Number of phases to rename must be greater than 0"
+      } else {
+        NULL
+      })
+      validate(if (!as.numeric(def_num) %% 1 == 0) {
+        "Error: Number of phases to rename must be a whole number"
+      } else {
+        NULL
+      })
+      fixedRow(
+        lapply(1:(as.numeric(def_num) * 3), function(i) {
+          a <- 1
+          ii <- i
+          while (ii > 3) {
+            ii <- ii - 3
+            a <- a + 1
+          }
+          if (ii == 1) {
+            chk_old <- try(unlist(strsplit(names(phases_to_rename_r$data)[a], split = "~"))[1], silent = TRUE)
+            if (class(chk_old) == "try-error") {
+              chk_old <- NULL
+            }
+            column(2, textInput(paste0("old_name_", a), "Old name", value = chk_old))
+          } else {
+            if (ii == 2) {
+              chk_new <- try(unlist(strsplit(names(phases_to_rename_r$data)[a], split = "~"))[2], silent = TRUE)
+              if (class(chk_new) == "try-error") {
+                chk_new <- NULL
+              }
+              column(2, textInput(paste0("new_name_", a), "New name", value = chk_new))
+            } else {
+              if (ii == 3) {
+                chk_condition <- try(phases_to_rename_r$data[a], silent = TRUE)
+                if (class(chk_condition) == "try-error") {
+                  chk_condition <- NULL
+                }
+                column(2, textInput(paste0("condition_", a), "Condition", value = chk_condition))
+              } else {
+              }
+            }
+          }
+        })
+      )
+    }
+  })
+
   # Dyanmically use abundance phases to select which phases to show
   output$select_abundance_phases <- renderUI({
-    selectizeInput("show_abundance_phases", "Show phases", c(abundance_phases_available_r(), "Reactive Subsystem", "Extract Subsystem", "Cumulative Extract Subsystem", "Full System"), multiple = TRUE, selected = "Reactive Subsystem")
+    selectizeInput(
+      "show_abundance_phases",
+      "Show phases",
+      c(
+        abundance_phases_available_r(),
+        "Reactive Subsystem",
+        "Extract Subsystem",
+        "Cumulative Extract Subsystem",
+        "Full System"
+      ),
+      multiple = TRUE,
+      selected = "Reactive Subsystem"
+    )
   })
   abundance_phases_available_r <- reactive({
     if (!is.null(input$axis)) {
       rownames(switch(input$axis,
-        x = phase_abundance(store_r$crust_r, input$axis, as.numeric(input$path_y), input$start_x, input$end_x, input$path_label, input_pt = store_r$input_pt_r),
-        y = phase_abundance(store_r$crust_r, input$axis, as.numeric(input$path_x), input$start_y, input$end_y, input$path_label, input_pt = store_r$input_pt_r)
+        x = phase_abundance(store_r$crust_r, input$axis, as.numeric(input$path_y), input$start_x, input$end_x, input$path_label, input_pt = store_r$input_pt_r, input$proportion),
+        y = phase_abundance(store_r$crust_r, input$axis, as.numeric(input$path_x), input$start_y, input$end_y, input$path_label, input_pt = store_r$input_pt_r, input$proportion)
       )[[2]])
     }
   })
@@ -2418,7 +2776,13 @@ shinyServer(function(input, output, session) {
       detach(pos = which(search() == paste0("file:", input$projects_directory, "/", i, "/", i, ".RData")))
       compile_names <- union(compile_names, get_PAM_names(neaten_crust(pull_crust, input$phase_aliases), input$PAM_system)[[1]])
     }
-    write.table(compile_names, paste0(input$projects_directory, "/Compile/", input$PAM_compilation, " compilation legend.txt"), sep = "\t", quote = F, col.names = FALSE)
+    write.table(
+      compile_names,
+      paste0(input$projects_directory, "/Compile/", input$PAM_compilation, " compilation legend.txt"),
+      sep = "\t",
+      quote = F,
+      col.names = FALSE
+    )
     cat("Compilation successfully created for", input$PAM_compilation, "\n")
     flush.console()
   })
@@ -2426,7 +2790,18 @@ shinyServer(function(input, output, session) {
   observeEvent(input$save_data, {
     switch(input$output_type,
       "Data File" =
-        reactive_message$data <- write_data_file(data_file(crust_out(), x_n = length(crust_out()[[1]]), y_n = length(crust_out()), input$choose_columns, input$choose_rows, input$choose_points), input$working_file, input$projects_directory, input$file_type),
+        reactive_message$data <- write_data_file(
+          data_file(crust_out(),
+            x_n = length(crust_out()[[1]]),
+            y_n = length(crust_out()),
+            input$choose_columns,
+            input$choose_rows,
+            input$choose_points
+          ),
+          input$working_file,
+          input$projects_directory,
+          input$file_type
+        ),
       "Grid" =
         if (TRUE) {
           reactive_message$data <- "Saving"
@@ -2444,18 +2819,17 @@ shinyServer(function(input, output, session) {
         }
     )
   })
-  # GCDkit button
+  # Send to GCDkit button
   observeEvent(input$send_gcdkit, {
-    # mod-tag: perform maintenance on this functionality
-    library(GCDkit)
-    setwd("D:\\Rcrust\\code")
-    Rcrust()
-    eqq <- data_file(crust, x_n = length(crust[[1]]), y_n = length(crust), choose_columns = NULL, choose_rows = NULL, compile = c("y_i", "x_i"))
-    eqq_mat <- eqq[[1]]
-    bb <- apply(eqq_mat, FUN = as.numeric, MARGIN = 1)
-    accessVar("bb", GUI = FALSE)
-    # needs data frame with samples as lines and info as columns
-    # accessVar("eqq",GUI=FALSE)
+    # is sourcing necessary here?
+    source("Rcrust_functions.r")
+    crust_to_gcdkit(store_r$crust_r, input$choose_columns, input$choose_rows, input$choose_points, GCDkitGUI = FALSE)
+  })
+  # Assign labels button
+  observeEvent(input$assign_label, {
+    source("Rcrust_functions.r")
+    crust <- assign_label(crust_out(), input$from_label, input$to_label, input$label_name, input$label_value)
+    store_r$crust_r <- crust
   })
   solution_models_available_r <- reactive({
     solution_models_available <- NULL
@@ -2482,6 +2856,8 @@ shinyServer(function(input, output, session) {
       grid_in <- eval(parse(text = input$Custom_selection))
     } else {
       grid_in <- grid_data(input$Grid_variable, input$Grid_variable_phase, crust_out(), input_pt)
+      # mod tag allow this sort of reading below in the GUI
+      # grid_in[[2]]<-as.matrix(read.csv("H2O saturation.csv"))
     }
     # Remove values
     if (input$remove_values != "") {
@@ -2545,8 +2921,8 @@ shinyServer(function(input, output, session) {
   phase_abundance_r <- reactive({
     if (!is.null(input$axis)) {
       switch(input$axis,
-        x = phase_abundance(crust_out(), input$axis, as.numeric(input$path_y), input$start_x, input$end_x, input$path_label, input_pt = store_r$input_pt_r),
-        y = phase_abundance(crust_out(), input$axis, as.numeric(input$path_x), input$start_y, input$end_y, input$path_label, input_pt = store_r$input_pt_r)
+        x = phase_abundance(crust_out(), input$axis, as.numeric(input$path_y), input$start_x, input$end_x, input$path_label, input_pt = store_r$input_pt_r, input$proportion),
+        y = phase_abundance(crust_out(), input$axis, as.numeric(input$path_x), input$start_y, input$end_y, input$path_label, input_pt = store_r$input_pt_r, input$proportion)
       )
     }
   })
@@ -2597,23 +2973,7 @@ shinyServer(function(input, output, session) {
               if (all(phase_aliases != "")) {
                 for (ph in 1:length(grab)) {
                   if (any(grab_name[ph] == phase_aliases)) {
-                    # Rename feldspars
-                    if (names(which(grab_name[ph] == phase_aliases)) == "Pl|Kf") {
-                      if (length(intersect(toupper(major_elements), c("CAO", "K2O"))) == 2) {
-                        # fix-tag: currently rename feldspars in two places, in order ot allow phase extraction, simplify this
-                        # fix-tag: issue with capitalisation
-                        CaO_pos <- which(toupper(names(crust_neat[[y_i]][[x_i]][ph, ])) == "CAO")
-                        K2O_pos <- which(toupper(names(crust_neat[[y_i]][[x_i]][ph, ])) == "K2O")
-                        if (crust_neat[[y_i]][[x_i]][ph, CaO_pos] > crust_neat[[y_i]][[x_i]][ph, K2O_pos]) {
-                          grab_name[ph] <- "Pl"
-                        } else {
-                          grab_name[ph] <- "Kf"
-                        }
-                      }
-                    } else {
-                      # Rename phases using aliases
-                      grab_name[ph] <- names(which(grab_name[ph] == phase_aliases)[1])
-                    }
+                    grab_name[ph] <- names(which(grab_name[ph] == phase_aliases)[1])
                     # label unwanted phases (phases of zero mass or phases labelled as "hide")
                     if (crust_neat[[y_i]][[x_i]][ph, "mass"] == 0 | grab_name[ph] == "hide") {
                       delete <- c(delete, ph)
@@ -2724,7 +3084,13 @@ shinyServer(function(input, output, session) {
       }
     }
     axis_values <- c(axis_values, axis_values[length(axis_values)] + axis_values[length(axis_values)] - axis_values[length(axis_values) - 1])
-    if (axes_variable == "y_i" | axes_variable == "x_i" | axes_variable == "Temperature (C)" | axes_variable == "Pressure (kbar)" | axes_variable == "Pressure (Mpa)" | axes_variable == "Temperature (K)") {
+    if (axes_variable == "y_i" |
+      axes_variable == "x_i" |
+      axes_variable == "Temperature (C)" |
+      axes_variable == "Pressure (kbar)" |
+      axes_variable == "Pressure (Mpa)" |
+      axes_variable == "Temperature (K)"
+    ) {
       axis_title <- axes_variable
     } else {
       axis_title <- paste(axes_variable_phase, axes_variable)
@@ -2771,31 +3137,62 @@ shinyServer(function(input, output, session) {
           col_brew <- rev(col_brew)
         }
         col_pal <- colorRampPalette(col_brew)(col_levels)
-        filled.contour(t(flip_y(grid_data_r()[[2]])),
-          plot.axes = {
-            if (!is.null(bottom)) {
-              axis(1, (0:(length(bottom[[2]]) - 1)) / (length(bottom[[2]]) - 1), bottom[[2]])
-            } else {
-              NULL
-            }
-            if (!is.null(left)) {
-              axis(2, (0:(length(left[[2]]) - 1)) / (length(left[[2]]) - 1), left[[2]])
-            } else {
-              NULL
-            }
-            if (!is.null(top)) {
-              axis(3, (0:(length(top[[2]]) - 1)) / (length(top[[2]]) - 1), top[[2]])
-            } else {
-              NULL
-            }
-            if (!is.null(right)) {
-              axis(4, (0:(length(right[[2]]) - 1)) / (length(right[[2]]) - 1), right[[2]])
-            } else {
-              NULL
-            }
-          },
-          nlevels = col_levels, col = col_pal
-        )
+        # 		mod tag - edit below line to allow GUI to set hard limits on z value
+        # 		filled.contour(t(flip_y(grid_data_r()[[2]])),zlim=c(0,2.6),
+        if (input$Grid_RColorBrewer_zlimits != "") {
+          filled.contour(t(flip_y(grid_data_r()[[2]])),
+            zlim = as.numeric(unlist(strsplit(input$Grid_RColorBrewer_zlimits, ","))),
+            plot.axes = {
+              if (!is.null(bottom)) {
+                axis(1, (0:(length(bottom[[2]]) - 1)) / (length(bottom[[2]]) - 1), bottom[[2]])
+              } else {
+                NULL
+              }
+              if (!is.null(left)) {
+                axis(2, (0:(length(left[[2]]) - 1)) / (length(left[[2]]) - 1), left[[2]])
+              } else {
+                NULL
+              }
+              if (!is.null(top)) {
+                axis(3, (0:(length(top[[2]]) - 1)) / (length(top[[2]]) - 1), top[[2]])
+              } else {
+                NULL
+              }
+              if (!is.null(right)) {
+                axis(4, (0:(length(right[[2]]) - 1)) / (length(right[[2]]) - 1), right[[2]])
+              } else {
+                NULL
+              }
+            },
+            nlevels = col_levels, col = col_pal
+          )
+        } else {
+          filled.contour(t(flip_y(grid_data_r()[[2]])),
+            plot.axes = {
+              if (!is.null(bottom)) {
+                axis(1, (0:(length(bottom[[2]]) - 1)) / (length(bottom[[2]]) - 1), bottom[[2]])
+              } else {
+                NULL
+              }
+              if (!is.null(left)) {
+                axis(2, (0:(length(left[[2]]) - 1)) / (length(left[[2]]) - 1), left[[2]])
+              } else {
+                NULL
+              }
+              if (!is.null(top)) {
+                axis(3, (0:(length(top[[2]]) - 1)) / (length(top[[2]]) - 1), top[[2]])
+              } else {
+                NULL
+              }
+              if (!is.null(right)) {
+                axis(4, (0:(length(right[[2]]) - 1)) / (length(right[[2]]) - 1), right[[2]])
+              } else {
+                NULL
+              }
+            },
+            nlevels = col_levels, col = col_pal
+          )
+        }
       } else {
         filled.contour(t(flip_y(grid_data_r()[[2]])),
           plot.axes = {
@@ -2915,7 +3312,16 @@ shinyServer(function(input, output, session) {
       # Set colour pallette
       cols <- RColorBrewer::brewer.pal(min(nrow(phase_abundance_data), 12), "Set3")
       # Plot
-      barplot(phase_abundance_data, space = 0, col = cols, border = NA, legend.text = (input$legend != "None"), args.legend = list(x = input$legend, bty = "n"), xlab = input$path_label, ylab = "Phase abundance (wt.%)")
+      barplot(
+        phase_abundance_data,
+        space = 0,
+        col = cols,
+        border = NA,
+        legend.text = (input$legend != "None"),
+        args.legend = list(x = input$legend, bty = "n"),
+        xlab = input$path_label,
+        ylab = paste("Phase abundance", input$proportion)
+      )
       if (action == "Save") {
         title(paste("Grid of ", gsub("\\/", " per ", grid_data_r()[[1]]), " for ", input$working_file))
         dev.off()
@@ -2943,7 +3349,13 @@ shinyServer(function(input, output, session) {
     if (action == "Save") {
       outfile_path <- paste0(input$projects_directory, "/", input$working_file, "/Outputs/", input$working_file, " PAM", input$file_type)
       outfile_legend_path <- paste0(input$projects_directory, "/", input$working_file, "/Outputs/", input$working_file, " PAM legend", input$file_type)
-      outfile_compile_legend_path <- paste0(input$projects_directory, "/Compile/", paste(sort(union(unlist(strsplit(input$PAM_compilation, ",")), input$working_file)), collapse = ","), " compile legend", input$file_type)
+      outfile_compile_legend_path <- paste0(
+        input$projects_directory,
+        "/Compile/",
+        paste(sort(union(unlist(strsplit(input$PAM_compilation, ",")), input$working_file)), collapse = ","),
+        " compile legend",
+        input$file_type
+      )
       if (input$file_type == ".txt") {
         write.table(PAM_r()[[1]], outfile_path, sep = "\t", quote = F, row.names = TRUE)
         write.table(PAM_legend, outfile_legend_path, sep = "\t", quote = F, row.names = TRUE, col.names = FALSE)
@@ -3145,7 +3557,7 @@ shinyServer(function(input, output, session) {
   })
   output$table <- renderTable(
     switch(input$output_type,
-      "Data File" = data_file(crust_out(), x_n = length(crust_out()[[1]]), y_n = length(crust_out()), input$choose_columns, input$choose_rows, input$choose_points),
+      "Data File" = data_file(crust_out(), x_n = length(crust_out()[[1]]), y_n = length(crust_out()), input$choose_columns, input$choose_rows, input$choose_points, input$assign_label),
       "Grid" = if (!is.null(grid_data_r())) {
         grid_data_r()[[2]]
       },
@@ -3208,10 +3620,50 @@ shinyServer(function(input, output, session) {
       "true",
       conditionalPanel(
         "input.output_type == 'Data File'",
-        selectizeInput("choose_columns", "Select Columns", c("All" = "", "Brief", "ID", "Phase", "y_i", "x_i", "Pressure(kbar)", "Temperature(C)", "wt%", "vol%", all_elements, "mass", "G(J)", "V(J/bar)", "H(J)", "Gruneisen_T", "Ks(bar)", "Mu(bar)", "V0(km/s)", "Vp(km/s)", "Vs(km/s)", "Vp/Vs", "Rho(kg/m3)", "Cp(J/K)", "alpha(1/K)", "beta(1/bar)", "S(J/K)", "N(g)", "Cp/Cv"), multiple = TRUE),
+        selectizeInput(
+          "choose_columns",
+          "Select Columns",
+          c(
+            "All" = "",
+            "Brief",
+            "ID",
+            "Phase",
+            "y_i",
+            "x_i",
+            "Pressure(kbar)",
+            "Temperature(C)",
+            "wt%",
+            "vol%",
+            all_elements,
+            "mass",
+            "G(J)",
+            "V(J/bar)",
+            "H(J)",
+            "Gruneisen_T",
+            "Ks(bar)",
+            "Mu(bar)",
+            "V0(km/s)",
+            "Vp(km/s)",
+            "Vs(km/s)",
+            "Vp/Vs",
+            "Rho(kg/m3)",
+            "Cp(J/K)",
+            "alpha(1/K)",
+            "beta(1/bar)",
+            "S(J/K)",
+            "N(g)",
+            "Cp/Cv"
+          ),
+          multiple = TRUE
+        ),
         # mod-tag should populate all potential columns here
         selectizeInput("choose_rows", "Select System/Phase", c("All" = "", "Reactive subsystem", "Extract subsystem", all_phases), multiple = TRUE),
-        textInput("choose_points", "Select Points", "{1;1}")
+        textInput("choose_points", "Select Points", "{1;1}"),
+        textInput("from_label", "From"),
+        textInput("to_label", "To"),
+        textInput("label_name", "Label Name"),
+        textInput("label_value", "Label Value"),
+        actionButton("assign_label", "Assign Label")
       ),
       conditionalPanel(
         "input.output_type == 'Grid'",
@@ -3230,7 +3682,21 @@ shinyServer(function(input, output, session) {
         selectInput("Grid_axes", "Labelled axes", c("bottom", "left", "top", "right"), selected = c("bottom", "left"), selectize = TRUE, multiple = TRUE),
         conditionalPanel(
           condition = "input.Grid_axes.indexOf('bottom') != -1",
-          selectInput("Grid_bottom_axis", "Bottom Axis", c("x_i", "Pressure (kbar)", "Temperature (C)", "Pressure (Mpa)", "Temperature (K)", colnames(crust[[1]][[1]]), "Custom"), selected = "x_i", selectize = TRUE),
+          selectInput(
+            "Grid_bottom_axis",
+            "Bottom Axis",
+            c(
+              "x_i",
+              "Pressure (kbar)",
+              "Temperature (C)",
+              "Pressure (Mpa)",
+              "Temperature (K)",
+              colnames(crust[[1]][[1]]),
+              "Custom"
+            ),
+            selected = "x_i",
+            selectize = TRUE
+          ),
           conditionalPanel(
             "['x_i','Pressure','Temperature'].indexOf(input.Grid_bottom_axis) == -1",
             selectInput("Grid_bottom_axis_grid_phase", NULL, sort(all_phases), selected = "Bulk_rs", selectize = TRUE)
@@ -3239,7 +3705,20 @@ shinyServer(function(input, output, session) {
         ),
         conditionalPanel(
           condition = "input.Grid_axes.indexOf('left') != -1",
-          selectInput("Grid_left_axis", "Left Axis", c("y_i", "Pressure (kbar)", "Temperature (C)", "Pressure (Mpa)", "Temperature (K)", colnames(crust[[1]][[1]])), selected = "y_i", selectize = TRUE),
+          selectInput(
+            "Grid_left_axis",
+            "Left Axis",
+            c(
+              "y_i",
+              "Pressure (kbar)",
+              "Temperature (C)",
+              "Pressure (Mpa)",
+              "Temperature (K)",
+              colnames(crust[[1]][[1]])
+            ),
+            selected = "y_i",
+            selectize = TRUE
+          ),
           conditionalPanel(
             "['y_i','Pressure','Temperature'].indexOf(input.Grid_left_axis) == -1",
             selectInput("Grid_left_axis_grid_phase", NULL, sort(all_phases), selected = "Bulk_rs", selectize = TRUE)
@@ -3248,7 +3727,20 @@ shinyServer(function(input, output, session) {
         ),
         conditionalPanel(
           condition = "input.Grid_axes.indexOf('top') != -1",
-          selectInput("Grid_top_axis", "Top Axis", c("x_i", "Pressure (kbar)", "Temperature (C)", "Pressure (Mpa)", "Temperature (K)", colnames(crust[[1]][[1]])), selected = "x_i", selectize = TRUE),
+          selectInput(
+            "Grid_top_axis",
+            "Top Axis",
+            c(
+              "x_i",
+              "Pressure (kbar)",
+              "Temperature (C)",
+              "Pressure (Mpa)",
+              "Temperature (K)",
+              colnames(crust[[1]][[1]])
+            ),
+            selected = "x_i",
+            selectize = TRUE
+          ),
           conditionalPanel(
             "['x_i','Pressure','Temperature'].indexOf(input.Grid_top_axis) == -1",
             selectInput("Grid_top_axis_grid_phase", NULL, sort(all_phases), selected = "Bulk_rs", selectize = TRUE)
@@ -3257,7 +3749,20 @@ shinyServer(function(input, output, session) {
         ),
         conditionalPanel(
           condition = "input.Grid_axes.indexOf('right') != -1",
-          selectInput("Grid_right_axis", "Right Axis", c("y_i", "Pressure (kbar)", "Temperature (C)", "Pressure (Mpa)", "Temperature (K)", colnames(crust[[1]][[1]])), selected = "y_i", selectize = TRUE),
+          selectInput(
+            "Grid_right_axis",
+            "Right Axis",
+            c(
+              "y_i",
+              "Pressure (kbar)",
+              "Temperature (C)",
+              "Pressure (Mpa)",
+              "Temperature (K)",
+              colnames(crust[[1]][[1]])
+            ),
+            selected = "y_i",
+            selectize = TRUE
+          ),
           conditionalPanel(
             "['y_i','Pressure','Temperature'].indexOf(input.Grid_right_axis) == -1",
             selectInput("Grid_right_axis_grid_phase", NULL, sort(all_phases), selected = "Bulk_rs", selectize = TRUE)
@@ -3265,11 +3770,25 @@ shinyServer(function(input, output, session) {
           selectizeInput("Grid_right_axis_increments", NULL, c("Increments", 3:y_n), "Increments")
         ),
         textInput("remove_values", "Remove Values"),
-        selectInput("Grid_colours", "Colour Scheme", c("gray.colors", "heat.colors", "terrain.colors", "rainbow", "topo.colors", "RColorBrewer"), selected = "gray.colors", selectize = TRUE),
+        selectInput(
+          "Grid_colours",
+          "Colour Scheme",
+          c(
+            "gray.colors",
+            "heat.colors",
+            "terrain.colors",
+            "rainbow",
+            "topo.colors",
+            "RColorBrewer"
+          ),
+          selected = "gray.colors",
+          selectize = TRUE
+        ),
         conditionalPanel(
           "input.Grid_colours == 'RColorBrewer'",
           selectInput("Grid_RColorBrewer_colours", "RColorBrewer Pallette", rev(rownames(RColorBrewer::brewer.pal.info)), selected = "YlOrRd", selectize = TRUE),
           textInput("Grid_RColorBrewer_levels", "Number of levels", 10),
+          textInput("Grid_RColorBrewer_zlimits", "Z limits", NULL),
           checkboxInput("Grid_RColorBrewer_reverse", "Reverse colours?", value = FALSE)
         ),
         radioButtons("rotation", "Rotation", c("0" = 0, "90" = 1, "180" = 2, "270" = 3), selected = 0, inline = TRUE, width = "200px"),
@@ -3278,6 +3797,7 @@ shinyServer(function(input, output, session) {
       conditionalPanel(
         "input.output_type == 'Phase Abundance Along Path'",
         selectInput("axis", "Axis", c("x", "y"), selected = "x", selectize = TRUE),
+        selectInput("proportion", "Proportion", c("mass", "wt%", "vol%"), selected = "mass", selectize = TRUE),
         conditionalPanel(
           "input.axis == 'x'",
           selectInput("path_y", "Path", 1:length(crust), selected = 1, selectize = TRUE),
@@ -3348,7 +3868,7 @@ shinyServer(function(input, output, session) {
       selectInput("file_type", "File type", c(".csv", ".txt", ".ps"), selected = ".csv", selectize = TRUE),
       actionButton("save_data", "Save To File")
       # mod-tag: allow this functionality
-      # actionButton("send_gcdkit","Send To GCDkit")
+      , actionButton("send_gcdkit", "Send To GCDkit")
     )
   })
   # if working_file is not blank on first opening, load file

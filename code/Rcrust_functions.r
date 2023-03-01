@@ -1,3 +1,114 @@
+# Repository for Rcrust functions
+crust_to_gcdkit <- function(crust, choose_columns = NULL, choose_rows = NULL, choose_points = "All", GCDkitGUI = FALSE, source.first = TRUE, source.plugins = TRUE) {
+  # crust_to_gcdkit(crust,choose_points="{1;1}")
+  # sends crust object to gcdkit
+  # note this function has to assign globally so that GCDkit can see it
+  data_crust <- as.data.frame(data_file(crust, x_n, y_n, choose_columns, choose_rows, choose_points))
+  rownames(data_crust) <- data_crust[, 1]
+  require(GCDkitDevelop)
+  # library(GCDkit)
+  stopApp(returnValue = invisible())
+  # source(paste(gcdx.dir,"/GCDkit.r",sep=""))
+  # setwd(gcdx.dir)
+  accessVar(data_crust, source.first = source.first, source.plugins = source.plugins, poke.data = FALSE, GUI = GCDkitGUI)
+  print("To launch the Rcrust GUI type Rcrust() into the console and press enter")
+  # Provide again the launch with GUI function in order to get back
+  Rcrust <<- function() {
+    # If working directory is x\Projects\y then set to x\code
+    if (length(grep("Rcrust/Projects/", getwd())) == 1) {
+      setwd(paste0(strsplit(getwd(), split = "Projects")[[1]][1], "code"))
+    }
+    runApp()
+  }
+}
+
+assign_label <- function(crust, from_label, to_label, label_name, label_value) {
+  # adds column to crust and populates it with value over range
+  # example
+  # label_name<-"Protolith"
+  # from_label<-"{1;1}"
+  # to_label<-"{1;1}"
+  # label_value<-"Sample1"
+  a <- unlist(strsplit(gsub("\\{", "", gsub("\\}", "", from_label)), split = ";"))
+  b <- unlist(strsplit(gsub("\\{", "", gsub("\\}", "", to_label)), split = ";"))
+  for (x_i in a[1]:b[1]) {
+    for (y_i in a[2]:b[2]) {
+      if (!any(colnames(crust[[y_i]][[x_i]]) == label_name)) {
+        lab_column <- matrix(label_value, nrow(crust[[y_i]][[x_i]]), 1)
+        colnames(lab_column) <- label_name
+        crust[[y_i]][[x_i]] <- cbind(crust[[y_i]][[x_i]], lab_column)
+      } else {
+        crust[[y_i]][[x_i]][, lab_column] <- label_value
+      }
+    }
+  }
+  return(crust)
+}
+# Modified from GCDmodel, written by Jean-francois Moyen 2019
+.sanitize2 <- function(obj, normalize.TO = 0) {
+  if (class(obj)[1] == "matrix") {
+    nn <- colnames(obj)
+    obj <- as.vector(obj)
+    names(obj) <- nn
+  }
+  if (class(obj)[1] == "data.frame") {
+    nn <- colnames(obj)
+    obj <- as.numeric(obj)
+    names(obj) <- nn
+  }
+  mis <- is.na(obj)
+  obj <- obj[!mis]
+  if (normalize.TO > 0) {
+    obj <- obj / sum(obj) * normalize.TO
+  }
+  return(obj)
+}
+# Modified from GCDmodel, written by Jean-francois Moyen 2019
+BatchPM2 <- function(kd, c0, pm, cmins = matrix(), min.props, melt.arg = list(), dont = character(0)) {
+  c0 <- .sanitize2(c0)
+  min.props <- .sanitize2(min.props, normalize.TO = 1)
+  which.elems <- intersect(names(c0), colnames(kd))
+  which.mins <- names(min.props)
+  missing <- setdiff(names(min.props), rownames(kd))
+  if (length(missing) != 0) {
+    stop(paste(
+      "Missing Kd value for mineral(s)", missing,
+      "\n"
+    ))
+  }
+  c0 <- c0[which.elems]
+  kd <- kd[which.mins, which.elems, drop = F]
+  DD <- min.props %*% kd
+  FF <- pm / 100
+  cL <- c0 / (DD + FF * (1 - DD))
+  ee <- sapply(names(min.props), function(i) {
+    z <- cL[1, which.elems] * kd[i, which.elems]
+    return(z)
+  }, simplify = TRUE)
+  cmins <- t(ee)
+  cmins <- cmins[which.mins, which.elems, drop = F]
+  cS <- cL[1, which.elems] * DD[1, which.elems]
+  invisible(list(
+    c0 = c0,
+    cL = .sanitize2(cL),
+    cmins = cmins,
+    cS = cS,
+    min.props = min.props,
+    FF = pm,
+    kd = kd,
+    DD = .sanitize2(DD)
+  ))
+}
+
+# exists_and_true
+exists_and_true <- function(x) {
+  chk <- try(x, silent = TRUE)
+  if (class(chk) == "try-error") {
+    return(FALSE)
+  } else {
+    return(x)
+  }
+}
 #############################################
 #
 # Ancillary function to merge several lines (by mass)
@@ -799,6 +910,29 @@ renameFsp <- function(all_elements, calc_phases) {
         rownames(calc_phases)[ph] <- "Pl"
       } else {
         rownames(calc_phases)[ph] <- "Kf"
+      }
+    }
+  }
+  return(calc_phases)
+}
+# rename phases as specified by the user
+renamePhases <- function(phases_to_rename, calc_phases) {
+  if (!phases_to_rename[1] == "") {
+    # Remove duplicate numbering in calc_phases
+    phases <- strsplit(rownames(calc_phases), "_")
+    phases <- sapply(phases, "[[", 1)
+    rownames(calc_phases) <- phases
+    # Replace the Bulk_rs label as we'll need it later
+    rownames(calc_phases)[which(rownames(calc_phases) == "Bulk")] <- "Bulk_rs"
+    for (i in 1:length(phases_to_rename)) {
+      rename_inputs <- unlist(strsplit(names(phases_to_rename[i]), "~"))
+      # if calculated phase matches phase name after removing underscore
+      for (j in which(phases == rename_inputs[1])) {
+        # If the phase meets the criteria
+        if (eval_expr(phases_to_rename[i], calc_phases[j, , drop = FALSE])) {
+          # rename the phase
+          rownames(calc_phases)[j] <- rename_inputs[2]
+        }
       }
     }
   }

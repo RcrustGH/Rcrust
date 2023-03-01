@@ -36,11 +36,16 @@ wrapper <- function(comps, c0, press, temp, calc_choice = "read.meemum") {
     c0 <<- c0
     meem_calc <- run.meemum(comps, c0, press, temp, meemum_path)
     # Write meemum output to file?
+    # Add information on Rcrust co-ordinates
+    point_coords <- paste0("Point x_i=", x_i, ", y_i=", y_i)
     if (!exists("export_meemum_output")) {
       export_meemum_output <- FALSE
     }
     if (export_meemum_output) {
-      sink("output_meem_mohit.txt", append = TRUE)
+      sink(paste(projects_directory, working_file, "Outputs", paste0(working_file, "_output_meemum.txt"), sep = "/"), append = TRUE)
+      print(point_coords)
+      print(meem_calc)
+      sink()
     }
     # Write meemum output to console?
     if (!exists("print_meem")) {

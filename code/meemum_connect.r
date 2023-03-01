@@ -7,8 +7,13 @@
 ########################################################
 # function-def:run.meemum<-function(meemum.path="",build.file="",meemum.order="",press=press*1000,temp=temp+273.15,bulk="",components="",pt_comp=pt_comp)
 run.meemum <- function(comps = comps, c0 = c0, press = press, temp = temp, meemum_path = "") {
+  # temporary setting to FALSE
+  if (class(try(set_oxygen_fugacity, silent = TRUE)) == "try-error") {
+    set_oxygen_fugacity <- FALSE
+  }
   if (set_oxygen_fugacity) {
-    parms <- c(paste0(gsub("/code", "/data", getwd()), "/parse_meem"), "n", c(temp + 273.15, press * 1000, as.numeric(input_bulk[[y_i]][[x_i]]["log10(fugacity)"])), "0", "0", "0")
+    # modtag log10(fugacity) is labelled here as O2 but input as log10(fugacity)
+    parms <- c(paste0(gsub("/code", "/data", getwd()), "/parse_meem"), "n", c(temp + 273.15, press * 1000, as.numeric(input_bulk[[y_i]][[x_i]]["O2"])), "0", "0", "0")
   } else {
     parms <- c(paste0(gsub("/code", "/data", getwd()), "/parse_meem"), "n", c(temp + 273.15, press * 1000), "0", "0")
   }
@@ -85,7 +90,7 @@ read.meemum <- function(meemum_in = meemum_in) {
   merge_2 <- merge_matrix(merge_1, data_matrix_from_line("Seismic Properties"))
   # make numeric and set phase column as row names
   meemum_out <- merge_2[, -1]
-  meemum_out <- matrix(as.numeric(meemum_out), nrow(meemum_out))
+  suppressWarnings(meemum_out <- matrix(as.numeric(meemum_out), nrow(meemum_out)))
   rownames(meemum_out) <- merge_2[, 1]
   colnames(meemum_out) <- colnames(merge_2)[-1]
   # mod-tag: remove system - fluid properties for now, may be useful in future to have access to this data
@@ -112,6 +117,10 @@ read.meemum <- function(meemum_in = meemum_in) {
   # names(meem_comps)<-data_matrix_from_line("Bulk Composition")[,"Phase"]
   # meemum_out["Bulk_rs",comps]<-meem_comps[comps]
   meemum_out["Bulk_rs", comps] <- c0[comps]
+  # Mod-tag quick fix here to calculate O2 from other phases by why don't we rather read the Bulk composition outputs from meemum?
+  if (any(colnames(meemum_out) == "O2")) {
+    meemum_out["Bulk_rs", "O2"] <- sum(meemum_out[-which(new_names == "Bulk_rs"), "O2"] / 100 * meemum_out[-which(new_names == "Bulk_rs"), "wt%"])
+  }
   # Set % to 100 for Bulk_rs
   chk_call <- try(meemum_out["Bulk_rs", "vol%"], silent = TRUE)
   if (class(chk_call) != "try-error") {

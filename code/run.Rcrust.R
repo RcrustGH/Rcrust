@@ -139,9 +139,37 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
       }
     }
     # Calculate phases
-    comps <<- major_elements
-    calc_phases <- try(wrapper(comps, c(c0[1:(length(major_elements))], c0[length(c0)]), press, temp, calc_choice), silent = TRUE)
-    if (class(calc_phases) == "try-error") {
+    # Matt working here
+    iterate_optimization_precision <- FALSE
+    iterate_optimization_precision_from <- 1e-1
+    iterate_optimization_precision_to <- 100
+    iterate_optimization_precision_step <- 10
+    if (!iterate_optimization_precision) {
+      # Calculate once off
+      comps <<- major_elements
+      calc_phases <- try(wrapper(comps, c(c0[1:(length(major_elements))], c0[length(c0)]), press, temp, calc_choice), silent = TRUE)
+    } else {
+      searching_for_stable_calculation <- TRUE
+      optimiztaion_count <- 1
+      # Iterate optimization precision until reach stable solution with smallest precision
+      while (searching_for_stable_calculation) {
+        comps <<- major_elements
+        calc_phases <- try(wrapper(comps, c(c0[1:(length(major_elements))], c0[length(c0)]), press, temp, calc_choice), silent = TRUE)
+        if (!class(calc_phases)[1] == "try-error") {
+          searching_for_stable_calculation <- FALSE
+        }
+        # otherwise increment optimization precision for next pass
+        optimization_precision <- iterate_optimization_precision_from + iterate_optimization_precision_step * optimization_count
+        # exit if exceed max optimization precision
+        if (optimization_precision > iterate_optimization_precision_to) {
+          searching_for_stable_calculation <- FALSE
+        }
+        # change precision in file
+        option_in <- readLines(paste0(gsub("/code", "/data", getwd()), "/", perplex_option_file))
+        write(input_file, file = paste0(gsub("Projects", "data", projects_directory), "/parse_meem.dat"))
+      }
+    }
+    if (class(calc_phases)[1] == "try-error") {
       cat("Oops, an error occured while calculating phases\n at ", press, " kbar and ", temp, " C for the bulk composition:\n ", all_elements, "\n", c0, "\n")
       run_errors <<- c(run_errors, y_i, x_i)
       if (pause_on_error) {
@@ -226,11 +254,12 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
         cat("The phases,", phs_missing, ", are not present at this point.\n")
       }
     } # Component packet continues after traces.
-    # renaming felspars
+    # renaming phases
     if (!exit_calc) {
       if (!is.na(match("Bulk_rs", rownames(calc_phases)))) {
-        # rename kf
-        calc_phases <- renameFsp(all_elements, calc_phases)
+        if (exists("phases_to_rename")) {
+          calc_phases <- renamePhases(phases_to_rename, calc_phases)
+        }
         # number duplicates
         for (ph in rownames(calc_phases)[which(duplicated(rownames(calc_phases)))]) {
           rownames(calc_phases)[which(rownames(calc_phases) == ph)[-1]] <- paste0(ph, "_", 1:length(which(rownames(calc_phases) == ph)[-1]))
@@ -239,7 +268,6 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
     }
     # Sean-tag
     # Calculate Trace element partitioning and apply Zircon, Monazite and Apatite saturation corrections
-    # browser()
     if (calculate_traces) {
       # Mod-tag: Making subsolidus routine within traces for apatite, although traces don't work subsolidus,
       # because we assume that all P2O5 will reside in apatite in subsolidus conditions .
@@ -257,13 +285,24 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
           # melt.args = additional parameters for example temperature dependence of kds
           # dont = phases to not be considered
           library(stats)
-          bpm <- BatchPM(
+          bpm <- BatchPM2(
             kd = kd.ppx,
             c0 = c0[1:length(c0) - 1],
             pm = calc_phases["Melt", "wt%"],
             min.props = min.props,
-            cmins = matrix(), melt.arg = list(), dont = character(0)
+            cmins = matrix(),
+            melt.arg = list(),
+            dont = character(0)
           )
+          # bpm <- BatchPM(
+          # kd = kd.ppx,
+          # c0 = c0[1:length(c0) - 1],
+          # pm = calc_phases["Melt", "wt%"],
+          # min.props = min.props,
+          # cmins = matrix(),
+          # melt.arg = list(),
+          # dont = character(0)
+          # )
         }
         if (any(major_elements == "H2O")) {
           major_elements_without_H2O <- major_elements[-which(major_elements == "H2O")]
@@ -331,7 +370,8 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                 press = press,
                 calc_phases = calc_phases,
                 apatite_saturation = apatite_saturation_Ap,
-                major_elements = major_elements
+                major_elements = major_elements,
+                phases_to_rename = phases_to_rename
               )
               # Check that Bulk_rs values match the (modified) c0.
               if (all(round(calc_phases["Bulk_rs", names(c0[c(major_elements, "P2O5")])], 10) == round(c0[c(major_elements, "P2O5")], 10))) {
@@ -346,12 +386,14 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                 ), "wt%"]
                 kd.ppx <- ppxCleanKdTable(kd.in, ppxPhases = names(min.props), interactive = FALSE)
                 library(stats)
-                bpm <- BatchPM(
+                bpm <- BatchPM2(
                   kd = kd.ppx,
                   c0 = c0[1:length(c0) - 1],
                   pm = calc_phases["Melt", "wt%"],
                   min.props = min.props,
-                  cmins = matrix(), melt.arg = list(), dont = character(0)
+                  cmins = matrix(),
+                  melt.arg = list(),
+                  dont = character(0)
                 )
                 # add trace element data to calc_phases
                 trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements) - 1)
@@ -386,7 +428,8 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                 apatite_saturation = apatite_saturation_ApMnz,
                 major_elements = major_elements,
                 Xmz = as.numeric(Xmz),
-                D_ApMelt_LREE = D_ApMelt_LREE
+                D_ApMelt_LREE = D_ApMelt_LREE,
+                phases_to_rename = phases_to_rename
               )
               c0 <- store_c0
             } else {
@@ -460,7 +503,8 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
               press = press,
               calc_phases = calc_phases,
               apatite_saturation = apatite_saturation,
-              major_elements = major_elements
+              major_elements = major_elements,
+              phases_to_rename = phases_to_rename
             )
             # Check that Bulk_rs values match the (modified) c0.
             if (all(round(calc_phases["Bulk_rs", names(c0[c(major_elements, "P2O5")])], 10) == round(c0[c(major_elements, "P2O5")], 10))) {
@@ -479,12 +523,14 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                 ), "wt%"]
                 kd.ppx <- ppxCleanKdTable(kd.in, ppxPhases = names(min.props), interactive = FALSE)
                 library(stats)
-                bpm <- BatchPM(
+                bpm <- BatchPM2(
                   kd = kd.ppx,
                   c0 = c0[1:length(c0) - 1],
                   pm = calc_phases["Melt", "wt%"],
                   min.props = min.props,
-                  cmins = matrix(), melt.arg = list(), dont = character(0)
+                  cmins = matrix(),
+                  melt.arg = list(),
+                  dont = character(0)
                 )
                 # add trace element data to calc_phases
                 trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements) - 1)
@@ -514,8 +560,9 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
     # Renaming of feldspars to be usable by component packet and phase extraction.
     if (!exit_calc) {
       if (!is.na(match("Bulk_rs", rownames(calc_phases)))) {
-        # rename kf
-        calc_phases <- renameFsp(all_elements, calc_phases)
+        if (exists("phases_to_rename")) {
+          calc_phases <- renamePhases(phases_to_rename, calc_phases)
+        }
         # number duplicates
         for (ph in rownames(calc_phases)[which(duplicated(rownames(calc_phases)))]) {
           rownames(calc_phases)[which(rownames(calc_phases) == ph)[-1]] <- paste0(ph, "_", 1:length(which(rownames(calc_phases) == ph)[-1]))
@@ -664,6 +711,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                         }
                       } else {
                         # If percentage then take as proportion
+                        # Fix-tag oxygen fugacity has problem here
                         grab_phases[ph, "mass"] <- round(calc_phases[ph, "mass"] * as.numeric(gsub("%", "", a)) / 100, 6)
                         calc_phases[ph, "mass"] <- round(calc_phases[ph, "mass"], 6) - grab_phases[ph, "mass"]
                       }
@@ -689,8 +737,8 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
               extr_bulk <- .wtd.add(grab_phases, prop = "mass", avname = "Bulk_es")
               rownames(grab_phases) <- paste0(rownames(grab_phases), "_es")
               extract <- rbind(grab_phases, extr_bulk)
-
               # c# Calculate new c0
+              grab <- c(all_elements, "mass")
               c0[c(all_elements, "mass")] <- c(.wtd.add(calc_phases[-which(rownames(calc_phases) == "Bulk_rs"), c(all_elements, "mass")]))
               # Recalculate mass dependent properties in calc_phases if not re-equilibrating
               if (!reequilibrate_steps) {
@@ -720,8 +768,9 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
   # if successful calc phases
   if (!exit_calc) {
     if (!is.na(match("Bulk_rs", rownames(calc_phases)))) {
-      # rename kf
-      calc_phases <- renameFsp(all_elements, calc_phases)
+      if (exists("phases_to_rename")) {
+        calc_phases <- renamePhases(phases_to_rename, calc_phases)
+      }
       # number duplicates
       for (ph in rownames(calc_phases)[which(duplicated(rownames(calc_phases)))]) {
         rownames(calc_phases)[which(rownames(calc_phases) == ph)[-1]] <- paste0(ph, "_", 1:length(which(rownames(calc_phases) == ph)[-1]))

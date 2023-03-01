@@ -1,28 +1,10 @@
 ###############################
 ## Rcrust (main.r)
 ###############################
-# Function for shortcut
-load_dependencies <<- function() {
-  # Load dependencies
-  library(utils)
-  if (!require(shiny)) {
-    install.packages("shiny")
-  }
-  library(shiny, quietly = TRUE)
-  if (!require(raster)) {
-    install.packages("raster")
-  }
-  if (!require(rgeos)) {
-    install.packages("rgeos")
-  }
-  if (!require(grDevices)) {
-    install.packages("grDevices")
-  }
-  if (!require(RColorBrewer)) {
-    install.packages("RColorBrewer")
-  }
-}
+# Get dependencies function
+source("dependencies.r")
 # Handle Default Configurations -----------------------------------------------
+
 if (!exists("project_name")) {
   project_name <- working_file
 }
@@ -46,7 +28,7 @@ if (!exists("project_name")) {
   }
   # Launch without GUI
   manual_load <<- function(working_file, projects_directory = paste0(substring(getwd(), 1, nchar(getwd()) - 4), "Projects")) {
-    source(paste0(projects_directory, "/", working_file, "/Inputs/", working_file, ".txt"))
+    source(paste0(projects_directory, "/", project_name, "/Inputs/", working_file, ".txt"))
     source("main.r")
   }
   # If working directory is x\Projects\y then set to x\code
@@ -163,6 +145,9 @@ if (sys.nframe() == 0L) {
   # manual_load, runApp both sources main.r, so this prevents double runs
   #--
   cat("\n")
+  if (exists("working_file")) {
+    cat(paste0("Starting up ", working_file, " for project ", project_name, ".\n"))
+  }
   source("run.Rcrust.R") # The function doing the job
   chk_valid <- try({
     # TODO CALEB Linux is case-sensitive. Any reason why some files named with R and some with r?
@@ -201,6 +186,11 @@ if (sys.nframe() == 0L) {
     input_valid <- FALSE
   }
   if (input_valid) {
+    # Clear meemum_outputs if they exist
+    if (export_meemum_output) {
+      meemum_output_path <- paste(projects_directory, working_file, "Outputs", paste0(working_file, "_output_meemum.txt"), sep = "/")
+      close(file(meemum_output_path, open = "w"))
+    }
     if (request_readline) {
       cat("Initiation succesful:\n   Please read the above lines and make sure this is what you wanted.\n")
       rd <- readline(prompt = "Choose \"n\" to abort or press [enter] to continue\n")
@@ -334,12 +324,41 @@ if (sys.nframe() == 0L) {
               calculation_matrix[y_i, x_i] <- 1
             }
           }
+        } else {
+          # Troy
+          library(snow)
+          # Run rcrust in parallel
+          for (i in 1:length(calc_order[[j]])) {
+            x_i <- calc_order[[j]][[i]]$x_i
+            y_i <- calc_order[[j]][[i]]$y_i
+            # cl<-makeCluster(3,type="SOCK")
+            # square<-function(x){x^2}
+            # clusterApply(cl,c(1:3),square)
+            # cl
+            # one_out<-run.Rcrust(comps,c0,press,temp)
+
+
+            # 	clusterApply(cl,c(1:3),run.Rcrust)
+
+            # 	one<-c(comps,c0,c0=input_bulk[[y_i]][[x_i]],press=input_pt[[y_i]][[x_i]][1],temp=input_pt[[y_i]][[x_i]][2])
+            # 			one_out<-run.Rcrust(comps,c0,press,temp)
+
+            crust[[y_i]][[x_i]] <- run.Rcrust(
+              comps = comps, c0 = input_bulk[[y_i]][[x_i]],
+              press = input_pt[[y_i]][[x_i]][1],
+              temp = input_pt[[y_i]][[x_i]][2],
+              ph_extr_pnt = input_ph_extr[[y_i]][[x_i]],
+              cumul_extract_pnt = cumul_extract[[y_i]][[x_i]],
+              ph_add_pnt = input_ph_add[[y_i]][[x_i]],
+              cumul_add_pnt = cumul_add[[y_i]][[x_i]]
+            )
+          }
         }
       }
     }
     # Save data
-    save.image(file = paste0(projects_directory, "/", working_file, "/", working_file, ".RData"))
-    cat("\n\nDone with calculations:\nResults saved to ", paste0(projects_directory, "/", working_file, "/", working_file, ".RData"), "\n\nSelect outputs through the Rcrust GUI or press esc to edit data in the Rconsole\n")
+    save.image(file = paste0(projects_directory, "/", project_name, "/", working_file, ".RData"))
+    cat("\n\nDone with calculations:\nResults saved to ", paste0(projects_directory, "/", project_name, "/", working_file, ".RData"), "\n\nSelect outputs through the Rcrust GUI or press esc to edit data in the Rconsole\n")
     flush.console()
   }
 }

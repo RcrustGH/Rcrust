@@ -93,7 +93,7 @@ getApSat <- function(apatite_saturation, Cmelt, temp) {
   )
 }
 # correctApSat written by Sean Hoffman, 2021
-correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major_elements) {
+correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major_elements, phases_to_rename) {
   # Mod-tag: Should change variable names to those used in description in Thesis/article.
   # Naming protocol:
   # [Phase]_[Component] is the wt.% of [Component] in the [Phase]
@@ -299,8 +299,10 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
   calc_phases <- normTotals(calc_phases, c0)
   calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
   calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
-  # renaming feldspars
-  calc_phases <- renameFsp(all_elements, calc_phases)
+  # Users should rename phases like Fsp if partitioning of trace elements to those phases is required
+  if (exists("phases_to_rename")) {
+    calc_phases <- renamePhases(phases_to_rename, calc_phases)
+  }
   # Adding P2O5 saturation value and accuracy value of P2O5 saturation in melt
   # calc P_Sat
   if (any(rownames(calc_phases) == "Melt")) {
@@ -332,7 +334,7 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
   return(calc_phases)
 }
 # correctApMnzSatWithCa written by Sean Hoffman, 2022
-correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_saturation, major_elements, Xmz, D_ApMelt_LREE) {
+correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_saturation, major_elements, Xmz, D_ApMelt_LREE, phases_to_rename) {
   # Code for calculating distribution of P and LREE between melt/apatite/monazite, Ca to apatite.
   # Mod-tag: There is no subsolidus routine. For apatite alone, we assume that all P is in apatite. We probably can't assume this for Ap-Mnz routine.
   # Mod-tag: isolating calcium makes the function un-detachable from Rcrust. Can make a more basic function that does not isolate calcium.
@@ -608,8 +610,10 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     calc_phases <- normTotals(calc_phases, c0)
     calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
     calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
-    # renaming feldspars
-    calc_phases <- renameFsp(all_elements, calc_phases)
+    # Users should rename phases like Fsp if partitioning of trace elements to those phases is required
+    if (exists("phases_to_rename")) {
+      calc_phases <- renamePhases(phases_to_rename, calc_phases)
+    }
     if (!is.na(any(match(rownames(calc_phases), "H2O")))) {
       min.props <- calc_phases[c(
         -which(rownames(calc_phases) == "Melt"),
@@ -622,7 +626,12 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
         -which(rownames(calc_phases) == "Bulk_rs")
       ), "wt%"]
     }
-    bpm <- BatchPM(kd = kd, c0 = c0[1:length(c0) - 1], pm = calc_phases["Melt", "wt%"], min.props = min.props)
+    bpm <- BatchPM2(
+      kd = kd,
+      c0 = c0[1:length(c0) - 1],
+      pm = calc_phases["Melt", "wt%"],
+      min.props = min.props
+    )
     # add trace element data to calc_phases
     trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements) - 1)
     colnames(trace_mat) <- trace_elements[-which(trace_elements == "P2O5")]

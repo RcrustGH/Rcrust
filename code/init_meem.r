@@ -3,6 +3,11 @@
 #  Create a meemum build file
 #
 ############################################
+# temporary setting to FALSE
+if (class(try(set_oxygen_fugacity, silent = TRUE)) == "try-error") {
+  set_oxygen_fugacity <- FALSE
+}
+
 cat("Creating meemum build file...\n")
 thermo_in <- readLines(paste0(gsub("/code", "/data", getwd()), "/", thermodynamic_data_file))
 comp_start <- grep("begin_components", thermo_in)

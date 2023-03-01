@@ -3,4 +3,4 @@ if (!require(styler)) {
 }
 
 print("Tidying code...")
-style_dir()
+style_dir(exclude_files = "sandbox.r")
