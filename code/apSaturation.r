@@ -464,6 +464,29 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     } else {
       # melt is not a stable phase after recalculation, return old_calc_phases
       cat("melt is not a stable phase after isolating ", isolate_Ca_Ap, " CaO, skipped Ap_Mnz saturation calculation.\n")
+      # mod-tag: could make this into a function
+      last_major <- which(colnames(old_calc_phases) == major_elements[length(major_elements)])
+      # Add P2O5 column to old_calc_phases
+      aa <- matrix(NA, nrow(old_calc_phases), 1)
+      colnames(aa) <- "P2O5"
+      aa[nrow(aa),"P2O5"] <- c0["P2O5"]
+      old_calc_phases <- cbind(cbind(old_calc_phases[, 1:last_major], aa), old_calc_phases[, (last_major + 1):ncol(old_calc_phases)])
+      # Create 'empty' trace elements columns
+      trace_mat <- matrix(NA, nrow(old_calc_phases), length(trace_elements) - 1)
+      colnames(trace_mat) <- trace_elements[-which(trace_elements == "P2O5")]
+      rownames(trace_mat) <- rownames(old_calc_phases)
+      trace_mat["Bulk_rs", ] <- c0[trace_elements[-which(trace_elements == "P2O5")]]
+      # add in trace elements after majors
+      last_major <- which(colnames(old_calc_phases) == "P2O5")
+      old_calc_phases <- cbind(
+        cbind(old_calc_phases[, 1:last_major], trace_mat),
+        old_calc_phases[, (last_major + 1):ncol(old_calc_phases)]
+      )
+      # add accuracy columns to be able to compare data file outputs
+      # mod-tag: can't view multiple data file points if columns differ
+      aa <- matrix(NA, nrow(old_calc_phases), 2)
+      colnames(aa) <- c("final_Sat", "final_Sat accuracy")
+      old_calc_phases <- cbind(old_calc_phases, aa)
       return(old_calc_phases)
     }
     # P saturation is controlled by Ap. LREE saturation is controlled by Mnz.
@@ -628,6 +651,8 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
         -which(rownames(calc_phases) == "Bulk_rs")
       ), "wt%"]
     }
+    kd <- ppxCleanKdTable(kd, ppxPhases = names(min.props), interactive = FALSE)
+    library(stats)
     bpm <- BatchPM2(
       kd = kd,
       c0 = c0[1:length(c0) - 1],
