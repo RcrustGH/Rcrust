@@ -271,7 +271,7 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
       br <- which(rownames(calc_phases) == "Bulk_rs")
       calc_phases <- rbind(rbind(calc_phases[1:br - 1, ], aa), calc_phases[br:nrow(calc_phases), , drop = FALSE])
       calc_phases["Bulk_rs", ] <- .wtd.add(rbind(aa, calc_phases["Bulk_rs", ]))
-      calc_phases["Ap", (last_major + 2):length(aa)] <- NaN
+      calc_phases["Ap", (last_major + 2):length(aa)] <- NA
       calc_phases["Ap", "Density(kg/m3)"] <- 3190
       calc_phases["Ap", "mol"] <- aa[, "mass"] / (aa[, Ca] / 100 * 56.0774 + aa[, "P2O5"] / 100 * 141.9445)
     }
@@ -291,13 +291,12 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
     br <- which(rownames(calc_phases) == "Bulk_rs")
     calc_phases <- rbind(rbind(calc_phases[1:br - 1, ], aa), calc_phases[br:nrow(calc_phases), , drop = FALSE])
     calc_phases["Bulk_rs", ] <- .wtd.add(rbind(aa, calc_phases["Bulk_rs", ]))
-    calc_phases["Ap", (last_major + 2):length(aa)] <- NaN
+    calc_phases["Ap", (last_major + 2):length(aa)] <- NA
     calc_phases["Ap", "Density(kg/m3)"] <- 3190
     calc_phases["Ap", "mol"] <- aa[, "mass"] / (aa[, Ca] / 100 * 56.0774 + aa[, "P2O5"] / 100 * 141.9445)
   }
   # neatening output:
   calc_phases <- normTotals(calc_phases, c0)
-  calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
   calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
   # Users should rename phases like Fsp if partitioning of trace elements to those phases is required
   if (exists("phases_to_rename")) {
@@ -320,7 +319,7 @@ correctApSat <- function(c0, temp, press, calc_phases, apatite_saturation, major
   }
   # should be slightly off due to coupling apatite and monazite saturation
   # normalisation may also affect the accuracy slightly
-  aa <- matrix(NaN, nrow(calc_phases), 2)
+  aa <- matrix(NA, nrow(calc_phases), 2)
   colnames(aa) <- c("final_Sat", "final_Sat accuracy")
   calc_phases <- cbind(calc_phases, aa)
   if (!is.na(any(match(rownames(calc_phases), "Ap")))) {
@@ -392,8 +391,11 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
         P_Mnz <- P_Bulk
         # Reduce LREE_Mnz to match P_Mnz
         LREE_Mnz <- P_Mnz * Mnz_LREE / Mnz_P
+        # equations break when P_Ap = 0
+        P_Ap <- 0.000001
+      } else {
+        P_Ap <- P_Bulk - P_Mnz
       }
-      P_Ap <- P_Bulk - P_Mnz
       LREE_Ap <- Ap_LREE / Ap_P * P_Ap
       LREE_Mnz <- LREE_Bulk - LREE_Ap
       cum_LREE_Mnz <- c(cum_LREE_Mnz, LREE_Mnz)
@@ -576,7 +578,7 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
       br <- which(rownames(calc_phases) == "Bulk_rs")
       calc_phases <- rbind(rbind(calc_phases[1:br - 1, ], aa), calc_phases[br:nrow(calc_phases), , drop = FALSE])
       last_major <- which(colnames(calc_phases) == "P2O5")
-      calc_phases["Ap", (last_major + 1):length(aa)] <- NaN
+      calc_phases["Ap", (last_major + 1):length(aa)] <- NA
       # Average value of Ap density used to estimate vol%
       calc_phases["Ap", "Density(kg/m3)"] <- 3190
       # mol of Ap is not a precise calculation as the density is estimated and the third site of F/Cl/OH is not included.
@@ -596,7 +598,8 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
       # Mod-tag: LREE are partitioned using kd values. This does not necessarily equate to the assumed stoichiometry of 566794 ppm
       br <- which(rownames(calc_phases) == "Bulk_rs")
       calc_phases <- rbind(rbind(calc_phases[1:br - 1, ], aa), calc_phases[br:nrow(calc_phases), , drop = FALSE])
-      calc_phases["Mnz", (last_major + 1):length(aa)] <- NaN
+      last_major <- which(colnames(calc_phases) == "P2O5")
+      calc_phases["Mnz", (last_major + 1):length(aa)] <- NA
       # not feasible to calculate mol of Mnz as it is largely made up of LREE. Will have insignificant effect on mol% of rock-forming phases.
       # Average value of Mnz density used to estimate vol%
       calc_phases["Mnz", "Density(kg/m3)"] <- 5100
@@ -608,7 +611,6 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
     calc_phases["Bulk_rs", "P2O5"] <- calc_phases["Bulk_rs", "P2O5"] + ((calc_phases["Melt", "P2O5"] / 100) * calc_phases["Melt", "mass"])
     # neatening output
     calc_phases <- normTotals(calc_phases, c0)
-    calc_phases[, c(major_elements, "P2O5")] <- round(calc_phases[, c(major_elements, "P2O5")], 3)
     calc_phases[, "mol"] <- signif(calc_phases[, "mol"], 3)
     # Users should rename phases like Fsp if partitioning of trace elements to those phases is required
     if (exists("phases_to_rename")) {
@@ -661,7 +663,7 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
       Xmz = Xmz
     )
     # P_Sat and LREE_Sat accuracy
-    aa <- matrix(NaN, nrow(calc_phases), 2)
+    aa <- matrix(NA, nrow(calc_phases), 2)
     colnames(aa) <- c("final_Sat", "final_Sat accuracy")
     calc_phases <- cbind(calc_phases, aa)
     if (!is.na(any(match(rownames(calc_phases), "Ap")))) {

@@ -5,9 +5,9 @@
 source("dependencies.r")
 # Handle Default Configurations -----------------------------------------------
 
-if (!exists("project_name")) {
+# if (!exists("project_name")) {
   project_name <- working_file
-}
+# }
 # .First ----------------------------------------------------------------------
 .First <- function(run_gui = TRUE) {
   first_load <<- FALSE
@@ -181,7 +181,7 @@ if (sys.nframe() == 0L) {
   # }
   # Input validation
   input_valid <- TRUE
-  if (class(chk_valid) == "try-error") {
+  if (class(chk_valid)[1] == "try-error") {
     cat("Initiation failed\n")
     input_valid <- FALSE
   }
@@ -257,7 +257,7 @@ if (sys.nframe() == 0L) {
               c0_k <- gsub("\\{", "", gsub("\\}", "", c0_k))
               for (split_i in 1:length(split_tuples)) {
                 outval <- try(crust[[eval(parse(text = split_tuples[[split_i]][2]))]][[eval(parse(text = split_tuples[[split_i]][1]))]][paste0("Bulk_", subsystem[split_i]), names(c0_k)], silent = TRUE)
-                if (class(outval) == "try-error") {
+                if (class(outval)[1] == "try-error") {
                   outval <- 0
                 }
                 if (is.null(outval)) {
@@ -265,7 +265,7 @@ if (sys.nframe() == 0L) {
                 } else {
                   c0_k_try <- try(sub(paste0(unlist(split_tuples[split_i]), collapse = ";"), outval, c0_k))
                 }
-                if (class(c0_k_try) != "try-error") {
+                if (class(c0_k_try)[1] != "try-error") {
                   c0_k <- c0_k_try
                 }
               }
@@ -296,7 +296,7 @@ if (sys.nframe() == 0L) {
             # Check if point should be calculated
             # object-def: 0=remaining,1=calculated,2=aborted
             chk <- try(PT_restrictions, silent = TRUE)
-            if (class(chk) == "try-error") {
+            if (class(chk)[1] == "try-error") {
               PT_restrictions <- NULL
             }
             if (!is.null(PT_restrictions[1])) {

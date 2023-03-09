@@ -157,6 +157,7 @@ shinyUI(
                   )
                 ),
                 textInput("kd_file", "Kd file"),
+                fixedRow(verbatimTextOutput("kd_message")),
                 uiOutput("traces")
               ),
               textInput("n_bulk_def", "Number of bulk definitions"),

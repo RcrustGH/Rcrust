@@ -127,6 +127,8 @@ exists_and_true <- function(x) {
     intensive.cn <- setdiff(colnames(thelines), c(prop, extensive.cn))
     foo <- matrix(rep(0, length(colnames(thelines))), nrow = 1)
     colnames(foo) <- colnames(thelines)
+    # replace NA with 0
+    thelines[is.na(thelines)] <- 0
     # Intensive
     foo[, intensive.cn] <- thelines[, prop] %*% thelines[, intensive.cn, drop = F] / sum(thelines[, prop])
     # Extensive
@@ -804,6 +806,7 @@ eval_expr <- function(expr, calc_phases = calc_phases, crust = crust) {
         retain_args <- strsplit(substr(a, bracs[i] + 1, bracs[i + 1] - 1), "[;,]")[[1]]
         ret <- as.numeric(retain_args[1])
         retention_unit <- retain_args[2]
+        ph <- names(expr)
         if (!is.na(retain_args[3])) {
           ph <- retain_args[3]
         }

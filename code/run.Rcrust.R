@@ -266,6 +266,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
         }
       }
     }
+    cat(c0,"\n")
     # Sean-tag
     # Calculate Trace element partitioning and apply Zircon, Monazite and Apatite saturation corrections
     if (calculate_traces) {
@@ -474,8 +475,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
               calc_phases["Mnz", major_elements] <- 0
             }
           } # End: saturation routines other than apatite saturation
-        } else { # Mod-tag: to get traces into apatite, apatite saturation needs to come in here or duplicate the code.
-          # This section triggers is if trace correction is not selected. But apatite is part of trace corrections..
+        } else {
           # Trace element data without saturation corrections
           # add trace element data to calc_phases
           trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements))
@@ -553,11 +553,50 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
             cat("\nP2O5 is not selected under trace elements\n")
             stop()
           }
-        } # end of subsolidus apatite saturation
+        } else { # sub-solidus ApSat ended
+          # Add empty trace element columns to calc_phases.
+          # Dependence breaks for trace elements if the first link in the path's crust object does not have trace elements
+          if (is.na(match("P2O5",trace_elements))) {
+            last_major <- which(colnames(calc_phases) == major_elements[length(major_elements)])
+            # Create 'empty' trace elements columns
+            trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements))
+            colnames(trace_mat) <- trace_elements
+            rownames(trace_mat) <- rownames(calc_phases)
+            trace_mat["Bulk_rs", ] <- c0[trace_elements]
+            # add in trace elements after majors
+            calc_phases <- cbind(
+              cbind(calc_phases[, 1:last_major], trace_mat),
+              calc_phases[, (last_major + 1):ncol(calc_phases)]
+            )
+          } else { # trace elements contains P2O5
+            last_major <- which(colnames(calc_phases) == major_elements[length(major_elements)])
+            # Add P2O5 column to calc_phases
+            aa <- matrix(NA, nrow(calc_phases), 1)
+            colnames(aa) <- "P2O5"
+            aa[nrow(aa),"P2O5"] <- c0["P2O5"]
+            calc_phases <- cbind(cbind(calc_phases[, 1:last_major], aa), calc_phases[, (last_major + 1):ncol(calc_phases)])
+            # Create 'empty' trace elements columns
+            trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements) - 1)
+            colnames(trace_mat) <- trace_elements[-which(trace_elements == "P2O5")]
+            rownames(trace_mat) <- rownames(calc_phases)
+            trace_mat["Bulk_rs", ] <- c0[trace_elements[-which(trace_elements == "P2O5")]]
+            # add in trace elements after majors
+            last_major <- which(colnames(calc_phases) == "P2O5")
+            calc_phases <- cbind(
+              cbind(calc_phases[, 1:last_major], trace_mat),
+              calc_phases[, (last_major + 1):ncol(calc_phases)]
+            )
+            # add accuracy columns to be able to compare data file outputs
+            # mod-tag: can't view multiple data file points if columns differ
+            aa <- matrix(NA, nrow(calc_phases), 2)
+            colnames(aa) <- c("final_Sat", "final_Sat accuracy")
+            calc_phases <- cbind(calc_phases, aa)
+          }
+        }
       } # end of subsolidus trace/saturation routines
     } # end of traces & saturation.
 
-    # Renaming of feldspars to be usable by component packet and phase extraction.
+    # Renaming of phases to be usable by component packet and phase extraction.
     if (!exit_calc) {
       if (!is.na(match("Bulk_rs", rownames(calc_phases)))) {
         if (exists("phases_to_rename")) {
@@ -690,7 +729,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
                   if (length(which(rownames(calc_phases) == ph)) > 0) {
                     # grab phase details
                     chk <- try(calc_phases[ph, grab, drop = FALSE], silent = TRUE)
-                    if (!class(chk) == "try-error") {
+                    if (!class(chk)[1] == "try-error") {
                       grab_phases <- rbind(grab_phases, calc_phases[ph, grab, drop = FALSE])
                     }
                     # Evaluate for extraction value unless ending in % sign

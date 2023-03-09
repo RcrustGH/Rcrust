@@ -668,6 +668,7 @@ shinyServer(function(input, output, session) {
   store_r <- reactiveValues(crust_r = NULL, input_pt_r = NULL, input_bulk_r = NULL, all_elements_r = NULL, major_elements_r = NULL, trace_elements_r = NULL, phases_to_rename_r = NULL)
   # initialise a passing message for error checking and reporting
   reactive_message <- reactiveValues(data = NULL)
+  traces_message <- reactiveValues(data = NULL)
   load_pt_r <- reactiveValues(data = NULL)
   # mod-tag load elements for backwards compatability
   if (!exists("major_elements")) {
@@ -2025,65 +2026,64 @@ shinyServer(function(input, output, session) {
   })
   output$traces <- renderUI({
     traces_file <- ""
-    show_traces <- TRUE
-    # if (!input$kd_file == "") {
-    #   if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
-    #     paste0("Provide valid Kd file in order to select trace elements")
-    #   } else {
-    #     traces_file <- colnames(read.table(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file), sep = "\t"))
-    #   }
-    # }
-    if (!input$apply_trace_correction == "Apatite saturation") {
+    # If valid kd file is input, trace elements from columns of kd file become available.
+    if (!input$kd_file == "") {
       if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
-        paste0("Provide valid Kd file in order to select trace elements")
-        show_traces <- FALSE
+        traces_message$data <- paste0("Provide valid Kd file in order to select trace elements")
+        show_traces <- TRUE
       } else {
+        traces_message$data <- paste0("")
         traces_file <- colnames(read.table(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file), sep = "\t"))
-        if (input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation") {
-          if (is.na(match("P2O5", traces_file))) {
-            traces_file <- c(traces_file, "P2O5")
-          }
-        }
+
       }
-    } else {
-      # Will show the trace elements input field when Apatite saturation is selected, with P2O5 as option.
-      # If valid kd file is input, other trace elements become available.
-      if (!input$kd_file == "") {
-        if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
-          paste0("Provide valid Kd file in order to select trace elements")
-        } else {
-          traces_file <- colnames(read.table(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file), sep = "\t"))
-        }
-      }
+    }
+    # When Apatite saturation is selected, the trace elements input field has P2O5 as option.
+    if (input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation") {
       if (is.na(match("P2O5", traces_file))) {
         traces_file <- c(traces_file, "P2O5")
       }
-    }
-    if (show_traces) {
-      if (any(input$trace_elements == "load")) {
-        selectizeInput("trace_elements", "Trace elements",
-          c(
-            trace_elements_r$data,
-            setdiff(traces_file, trace_elements_r$data),
-            "load"
-          ),
-          selected = trace_elements_r$data,
-          multiple = TRUE
-        )
-      } else {
-        selectizeInput("trace_elements", "Trace elements",
-          c(
-            input$trace_elements,
-            setdiff(traces_file, input$trace_elements),
-            "load"
-          ),
-          selected = input$trace_elements,
-          multiple = TRUE
-        )
+      if (is.na(match("P2O5", input$trace_elements))) {
+        updateSelectizeInput(session, "trace_elements", selected = traces_file)
       }
     } else {
-      paste0("Provide valid Kd file in order to select trace elements")
+      if (!is.na(match("P2O5", traces_file))) {
+        traces_file <- traces_file[-match("P2O5", trace_elements)]
+      }
+      if (!is.na(match("P2O5", trace_elements_r$data))) {
+        trace_elements_r$data <- trace_elements_r$data[-match("P2O5", trace_elements)]
+      }
+      if (!is.na(match("P2O5", input$trace_elements))) {
+        updateSelectizeInput(session, "trace_elements", selected = "load")
+      }
     }
+    if (any(input$trace_elements == "load")) {
+      selectizeInput("trace_elements", "Trace elements",
+                     c(
+                       trace_elements_r$data,
+                       setdiff(traces_file, trace_elements_r$data),
+                       "load"
+                     ),
+                     selected = trace_elements_r$data,
+                     multiple = TRUE
+      )
+    } else {
+      selectizeInput("trace_elements", "Trace elements",
+                     c(
+                       input$trace_elements,
+                       setdiff(traces_file, input$trace_elements),
+                       "load"
+                     ),
+                     selected = input$trace_elements,
+                     multiple = TRUE
+      )
+    }
+  })
+  # Warning message for valide kd file
+  output$kd_message <- renderText({
+    if (is.null(traces_message$data)) {
+      return()
+    }
+    paste0(traces_message$data)
   })
   # Dynamically use number of bulk definitions to create the correct number of From,To,bulk inputs
   output$bulk <- renderUI({
