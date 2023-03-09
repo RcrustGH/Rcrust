@@ -266,7 +266,6 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
         }
       }
     }
-    cat(c0,"\n")
     # Sean-tag
     # Calculate Trace element partitioning and apply Zircon, Monazite and Apatite saturation corrections
     if (calculate_traces) {
