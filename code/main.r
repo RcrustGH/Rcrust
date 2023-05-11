@@ -2,11 +2,17 @@
 ## Rcrust (main.r)
 ###############################
 # Get dependencies function
-source("dependencies.r")
+if (length(grep("Rcrust/Projects/", getwd())) == 1) {
+  source(paste0(strsplit(getwd(), split = "Projects")[[1]][1], "code/", "dependencies.r"))
+} else if (length(grep("Rcrust/code", getwd())) == 1) {
+  source("dependencies.r")
+}
+#
 # Handle Default Configurations -----------------------------------------------
-
 # if (!exists("project_name")) {
+if (exists("working_file")) {
   project_name <- working_file
+}
 # }
 # .First ----------------------------------------------------------------------
 .First <- function(run_gui = TRUE) {
@@ -111,7 +117,6 @@ if (class(try(reequilibrate_steps, silent = TRUE)) == "try-error") {
 if (class(try(calculate_activities, silent = TRUE)) == "try-error") {
   calculate_activities <- FALSE
 }
-# Sean-tag:
 if (class(try(component_packet, silent = TRUE)) == "try-error") {
   component_packet <- FALSE
 }
@@ -128,8 +133,8 @@ if (class(try(calc_choice, silent = TRUE)) == "try-error") {
 assign("OperatingSystem", Sys.info()["sysname"], envir = .GlobalEnv)
 cat("Running on Operating System: ", OperatingSystem, "\n")
 
-# cat("Loading Dependencies\n")
-# load_dependencies()
+cat("Loading Dependencies\n")
+load_dependencies()
 
 #-- Workaround to run from cmd line
 args <- commandArgs(trailingOnly = TRUE)
@@ -162,7 +167,6 @@ if (sys.nframe() == 0L) {
     if (calculate_activities) {
       source("init_activities.r") # Gibbs enthalpies for activity calculations
     }
-    # Sean-tag:
     source("apSaturation.r") # Saturation calculations involving apatite
     source("Rcrust_functions.r")
   })

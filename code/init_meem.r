@@ -55,7 +55,6 @@ for (ox in major_elements) {
     "molar amount"
   }, "\n", sep = ""))
 }
-# Sean-tag
 if (component_packet) {
   if (!isTRUE(new_components == "")) {
     for (i in 1:length(new_components)) {

@@ -5,7 +5,10 @@ crust_to_gcdkit <- function(crust, choose_columns = NULL, choose_rows = NULL, ch
   # note this function has to assign globally so that GCDkit can see it
   data_crust <- as.data.frame(data_file(crust, x_n, y_n, choose_columns, choose_rows, choose_points))
   rownames(data_crust) <- data_crust[, 1]
-  require(GCDkitDevelop)
+  if (!require(GCDkitDevelop)) {
+    check_GCDkit()
+  }
+  library(GCDkitDevelop)
   # library(GCDkit)
   stopApp(returnValue = invisible())
   # source(paste(gcdx.dir,"/GCDkit.r",sep=""))
@@ -21,7 +24,40 @@ crust_to_gcdkit <- function(crust, choose_columns = NULL, choose_rows = NULL, ch
     runApp()
   }
 }
-
+check_GCDkit <- function() {
+  if (!require(GCDkitDevelop)) {
+    # try to install GCDkitDevelop
+    install.packages(paste0(gsub("/code", "/plugins", getwd()), "/GCDkitDevelop.zip"))
+    if (!require(GCDkitDevelop)) {
+      cat("Trying to copy GCDkitDevelop files to R library.\n")
+      for (i in 1:length(.libPaths())) {
+        # if install was unsuccessful, try to manually place package in library/libraries
+        try(
+          unzip(paste0(gsub("/code", "/plugins", getwd()), "/GCDkitDevelop.zip"),
+            exdir = paste0(.libPaths()[[i]], ),
+            overwrite = TRUE
+          ),
+          silent = TRUE
+        )
+        if (dir.exists(paste0(.libPaths()[[i]], "/GCDkitDevelop"))) {
+          cat("\nGCDmodel manually unpacked at ", paste0(.libPaths()[[i]], "/GCDkitDevelop \n"))
+          break
+        } else {
+          cat("Unable to copy GCDkitDevelop to R library at ", .libPaths()[[i]], "\n. You can find GCDkitDevelop in Rcrust/plugins")
+        }
+      }
+    }
+    if (!require("RODBC")) {
+      install.packages("RODBC")
+    }
+    if (!require("R2HTML")) {
+      install.packages("R2HTML")
+    }
+    if (!require("XML")) {
+      install.packages("XML")
+    }
+  }
+}
 assign_label <- function(crust, from_label, to_label, label_name, label_value) {
   # adds column to crust and populates it with value over range
   # example
@@ -806,9 +842,11 @@ eval_expr <- function(expr, calc_phases = calc_phases, crust = crust) {
         retain_args <- strsplit(substr(a, bracs[i] + 1, bracs[i + 1] - 1), "[;,]")[[1]]
         ret <- as.numeric(retain_args[1])
         retention_unit <- retain_args[2]
-        ph <- names(expr)
+        #
         if (!is.na(retain_args[3])) {
           ph <- retain_args[3]
+        } else {
+          ph <- names(expr)
         }
         bulk_no <- which(rownames(calc_phases) == "Bulk_rs")
         ph_no <- which(rownames(calc_phases) == ph)

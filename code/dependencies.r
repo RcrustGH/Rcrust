@@ -5,6 +5,9 @@ load_dependencies <<- function() {
     install.packages("shiny")
   }
   library(shiny, quietly = TRUE)
+  if (!require(shinyBS)) {
+    install.packages("shinyBS")
+  }
   if (!require(raster)) {
     install.packages("raster")
   }

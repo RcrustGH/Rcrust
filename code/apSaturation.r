@@ -469,7 +469,7 @@ correctApMnzSatWithCa <- function(c0, kd, temp, press, calc_phases, apatite_satu
       # Add P2O5 column to old_calc_phases
       aa <- matrix(NA, nrow(old_calc_phases), 1)
       colnames(aa) <- "P2O5"
-      aa[nrow(aa),"P2O5"] <- c0["P2O5"]
+      aa[nrow(aa), "P2O5"] <- c0["P2O5"]
       old_calc_phases <- cbind(cbind(old_calc_phases[, 1:last_major], aa), old_calc_phases[, (last_major + 1):ncol(old_calc_phases)])
       # Create 'empty' trace elements columns
       trace_mat <- matrix(NA, nrow(old_calc_phases), length(trace_elements) - 1)

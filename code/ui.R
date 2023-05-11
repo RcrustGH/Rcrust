@@ -1,6 +1,13 @@
 ###############################
 ## Rcrust (ui.r)
 ###############################
+#load dependencies
+if (length(grep("Rcrust/Projects/", getwd())) == 1) {
+  source(paste0(strsplit(getwd(), split = "Projects")[[1]][1], "code/", "dependencies.r"))
+} else if (length(grep("Rcrust/code", getwd())) == 1) {
+  source("dependencies.r")
+}
+load_dependencies()
 # function-def: textInputRow(inputId, label, value = "")
 textInputRow <<- function(inputId, label, value = "") {
   div(
@@ -13,6 +20,7 @@ textInputRow <<- function(inputId, label, value = "") {
 if (!exists("working_file")) {
   working_file <- ""
 }
+library(shinyBS)
 shinyUI(
   fixedPage(
     # Add custom CSS & Javascript for Progress Indicator
@@ -61,6 +69,10 @@ shinyUI(
           "Pressure and Temperature",
           actionButton("pt_panel_minimiser", label = "..."),
           actionButton("pt_import_panel_minimiser", label = "<-"),
+          bsTooltip(
+            id = "pt_import_panel_minimiser", title = "Import PT",
+            placement = "right", trigger = "hover"
+          ),
           conditionalPanel(
             "(input.pt_panel_minimiser)%2 == 0",
             conditionalPanel(
@@ -78,6 +90,10 @@ shinyUI(
           "Bulk Composition",
           actionButton("bulk_comp_panel_minimiser", label = "..."),
           actionButton("bulk_import_panel_minimiser", label = "<-"),
+          bsTooltip(
+            id = "bulk_import_panel_minimiser", title = "Import Bulk",
+            placement = "right", trigger = "hover"
+          ),
           conditionalPanel(
             "(input.bulk_comp_panel_minimiser)%2 == 0",
             conditionalPanel(
@@ -178,7 +194,13 @@ shinyUI(
         "Phase Manipulations",
         # Phase Addition Panel
         wellPanel(
-          "Phase Addition", actionButton("phase_addition_panel_minimiser", label = "..."), actionButton("phase_addition_import_panel_minimiser", label = "<-"),
+          "Phase Addition",
+          actionButton("phase_addition_panel_minimiser", label = "..."),
+          actionButton("phase_addition_import_panel_minimiser", label = "<-"),
+          bsTooltip(
+            id = "phase_addition_import_panel_minimiser", title = "Import phase additions",
+            placement = "right", trigger = "hover"
+          ),
           conditionalPanel(
             "(input.phase_addition_panel_minimiser)%2 == 0",
             conditionalPanel(
@@ -197,7 +219,13 @@ shinyUI(
         ),
         # Phase Extraction Panel
         wellPanel(
-          "Phase Extraction", actionButton("phase_extraction_panel_minimiser", label = "..."), actionButton("phase_extraction_import_panel_minimiser", label = "<-"),
+          "Phase Extraction",
+          actionButton("phase_extraction_panel_minimiser", label = "..."),
+          actionButton("phase_extraction_import_panel_minimiser", label = "<-"),
+          bsTooltip(
+            id = "phase_extraction_import_panel_minimiser", title = "Import phase extractions",
+            placement = "right", trigger = "hover"
+          ),
           conditionalPanel(
             "(input.phase_extraction_panel_minimiser)%2 == 0",
             conditionalPanel(
@@ -248,7 +276,6 @@ shinyUI(
             uiOutput("rename_phases_inputs")
           )
         ),
-        # Sean-tag
         # Component Packet Panel
         wellPanel(
           "Component Packet", actionButton("component_packet_panel_minimiser", label = "..."),
@@ -284,7 +311,13 @@ shinyUI(
         sidebarLayout(
           sidebarPanel(
             textInput("phase_aliases", "Phase Aliases"),
-            selectInput("output_type", "Select Output", c("Data File", "Grid", "Phase Abundance Along Path", "PAM"), selected = "Data File", selectize = TRUE),
+            selectInput(
+              "output_type",
+              "Select Output",
+              c("Data File", "Grid", "Phase Abundance Along Path", "PAM"),
+              selected = "Data File",
+              selectize = TRUE
+            ),
             uiOutput("output_form_selection"),
             # Dynamic output selection boxes
             uiOutput("output_selection")

@@ -112,7 +112,6 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
         }
       }
     }
-    # Sean-tag
     # Component packet. Removes and stores new component from global variables before calculations occur.
     # Mod-tag: should probably not be altering global variables
     # For new components, always isolate 100% of the mass as the remainder will be not be allocated.
@@ -181,7 +180,6 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
       exit_calc <<- FALSE
     }
     calc <- FALSE
-    # Sean-tag
     # Component packet. Built by Sean Hoffman 2020.
     if (component_packet) {
       phs_missing <- c("")
@@ -266,7 +264,6 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
         }
       }
     }
-    # Sean-tag
     # Calculate Trace element partitioning and apply Zircon, Monazite and Apatite saturation corrections
     if (calculate_traces) {
       # Mod-tag: Making subsolidus routine within traces for apatite, although traces don't work subsolidus,
@@ -555,7 +552,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
         } else { # sub-solidus ApSat ended
           # Add empty trace element columns to calc_phases.
           # Dependence breaks for trace elements if the first link in the path's crust object does not have trace elements
-          if (is.na(match("P2O5",trace_elements))) {
+          if (is.na(match("P2O5", trace_elements))) {
             last_major <- which(colnames(calc_phases) == major_elements[length(major_elements)])
             # Create 'empty' trace elements columns
             trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements))
@@ -572,7 +569,7 @@ run.Rcrust <- function(comps, c0, press, temp, ph_extr_pnt, cumul_extract_pnt = 
             # Add P2O5 column to calc_phases
             aa <- matrix(NA, nrow(calc_phases), 1)
             colnames(aa) <- "P2O5"
-            aa[nrow(aa),"P2O5"] <- c0["P2O5"]
+            aa[nrow(aa), "P2O5"] <- c0["P2O5"]
             calc_phases <- cbind(cbind(calc_phases[, 1:last_major], aa), calc_phases[, (last_major + 1):ncol(calc_phases)])
             # Create 'empty' trace elements columns
             trace_mat <- matrix(NA, nrow(calc_phases), length(trace_elements) - 1)

@@ -519,10 +519,8 @@ grid_data <- function(Grid_variable, Grid_variable_phase = "Bulk_rs", crust_in =
 # function-def:.First()
 # Function for shortcut
 .First <- function() {
-  library(utils)
-  if (!require(shiny)) {
-    install.packages("shiny")
-  }
+  cat("Loading Dependencies\n")
+  load_dependencies()
   library(shiny)
   # Launch with GUI function
   Rcrust <<- function() {
@@ -572,6 +570,416 @@ error_handling <- function(working_file, projects_directory) {
     return("Error: no working file specified")
   }
   return("error handling passed")
+}
+# Validate inputs
+# must stay in server.R
+check_inputs <- function(input) {
+  # GUI level validation check that have at least minimum of P,T,and X definitions in GUI
+  var_missing <- NULL
+  chk_variables <- c("input$x_n", "input$y_n", "input$n_pt_def", "input$n_bulk_def", "input$major_elements")
+  for (i in rev(chk_variables)) {
+    if (any(eval(parse(text = i)) == "")) {
+      var_missing <- i
+    }
+  }
+  if (!is.null(var_missing)) {
+    # reactive_message$data <- paste0("Error: Cannot run calculation. Missing ", var_missing)
+    return(paste0("Error: Cannot run calculation. Missing ", var_missing))
+    # Check that P2O5 selected for certain saturation corrections.
+  }
+  if (!input$x_n == "") {
+    if (is.na(suppressWarnings(as.numeric(input$x_n)))) {
+      return("Error: X must be numeric")
+    }
+    if (as.numeric(input$x_n) < 1) {
+      return("Error: X must be greater than 1")
+    }
+    if (!as.numeric(input$x_n) %% 1 == 0) {
+      return("Error: X must be a whole number")
+    }
+  }
+  if (!input$y_n == "") {
+    if (is.na(suppressWarnings(as.numeric(input$y_n)))) {
+      return("Error: Y must be numeric")
+    }
+    if (as.numeric(input$y_n) < 1) {
+      return("Error: Y must be greater than 1")
+    }
+    if (!as.numeric(input$y_n) %% 1 == 0) {
+      return("Error: Y must be a whole number")
+    }
+  }
+}
+check_pt_def <- function(input) {
+  if (!input$n_pt_def == "") {
+    # Error validation
+    if (is.na(suppressWarnings(as.numeric(input$n_pt_def)))) {
+      return("Error: Number of PT definitions must be numeric")
+    }
+    if (as.numeric(input$n_pt_def) < 1) {
+      return("Error: Number of PT definitions must be greater than 0")
+    }
+    if (!as.numeric(input$n_pt_def) %% 1 == 0) {
+      return("Error: Number of PT definitions must be a whole number")
+    }
+    list_pt <- NULL
+    for (i in 1:as.numeric(input$n_pt_def)) {
+      # check tuples
+      from <- check_tuple(eval(parse(text = paste0("input$pt_from_", i))))
+      if (!from[[1]] == "Valid tuple") {
+        return(paste0("Error in PT Definition:     ", from[[1]]))
+      }
+      to <- check_tuple(eval(parse(text = paste0("input$pt_to_", i))))
+      if (!to[[1]] == "Valid tuple") {
+        return(paste0("Error in PT Definition:     ", to[[1]]))
+      }
+      list_pt <- c(
+        list_pt,
+        paste0(
+          "\"", from[[2]], "_", to[[2]], "\"=c(",
+          pasteq(eval(parse(text = paste0("input$pressure_", i)))),
+          ",",
+          pasteq(eval(parse(text = paste0("input$temperature_", i)))),
+          ")"
+        )
+      )
+    }
+    pt_definitions <- paste0("list(", paste0(list_pt, collapse = ","), ")")
+  } else {
+    pt_definitions <- ""
+  }
+  return(pt_definitions)
+}
+check_comp_trans <- function(input) {
+  if (!input$n_comp_trans == "") {
+    # Error validation
+    if (is.na(suppressWarnings(as.numeric(input$n_comp_trans)))) {
+      return("Error: Number of Component transformations must be numeric")
+    }
+    if (as.numeric(input$n_comp_trans) < 1) {
+      return("Error: Number of Component transformations must be greater than 0")
+    }
+    if (!as.numeric(input$n_comp_trans) %% 1 == 0) {
+      return("Error: Number of Component transformations must be a whole number")
+    }
+    list_trans <- NULL
+    for (i in 1:as.numeric(input$n_comp_trans)) {
+      list_trans <- c(list_trans, paste0("\"", eval(parse(text = paste0("input$old_comp_", i))), "_", eval(parse(text = paste0("input$new_comp_", i))), "\"=c(", pasteq(eval(parse(text = paste0("input$comp_", i)))), ")"))
+    }
+    comp_transformations <- paste0("list(", paste0(list_trans, collapse = ","), ")")
+  } else {
+    comp_transformations <- ""
+  }
+  return(comp_transformations)
+}
+check_bulk_def <- function(input) {
+  if (!input$n_bulk_def == "") {
+    # Error validation
+    if (is.na(suppressWarnings(as.numeric(input$n_bulk_def)))) {
+      return("Error: Number of Bulk definitions must be numeric")
+    }
+    if (as.numeric(input$n_bulk_def) < 1) {
+      return("Error: Number of Bulk definitions must be greater than 0")
+    }
+    if (!as.numeric(input$n_bulk_def) %% 1 == 0) {
+      return("Error: Number of Bulk definitions must be a whole number")
+    }
+    list_bulk <- NULL
+    for (i in 1:as.numeric(input$n_bulk_def)) {
+      # check tuples
+      from <- check_tuple(eval(parse(text = paste0("input$bulk_from_", i))))
+      if (!from[[1]] == "Valid tuple") {
+        return(paste0("Error in Bulk Definition:     ", from[[1]]))
+      }
+      to <- check_tuple(eval(parse(text = paste0("input$bulk_to_", i))))
+      if (!to[[1]] == "Valid tuple") {
+        return(paste0("Error in Bulk Definition:     ", to[[1]]))
+      }
+      bulk_eval <- strsplit(eval(parse(text = paste0("input$bulk_", i))), split = ",")[[1]]
+      # place in quotes
+      for (j in 1:length(bulk_eval)) {
+        bulk_eval[j] <- pasteq(bulk_eval[j])
+      }
+      list_bulk <- c(list_bulk, paste0("\"", from[[2]], "_", to[[2]], "\"=c(", paste(bulk_eval, collapse = ","), ")"))
+    }
+    bulk_definitions <- paste0("list(", paste0(list_bulk, collapse = ","), ")")
+  } else {
+    bulk_definitions <- ""
+  }
+  return(bulk_definitions)
+}
+check_traces <- function(input) {
+  if (input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation") {
+    if (!any(input$trace_elements == "P2O5")) {
+      # reactive_message$data <- paste0("P2O5 not selected under trace elements for saturation corrections")
+      return(paste0("P2O5 not selected under trace elements for saturation corrections"))
+    }
+    if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
+      if (!exists_and_numeric(input$D_ApMelt_LREE)) {
+        # reactive_message$data <- paste0("Please enter a numeric value under D Ap/Melt LREE")
+        return(paste0("Please enter a numeric value under D Ap/Melt LREE"))
+      }
+      if (!exists_and_numeric(input$Xmz)) {
+        # reactive_message$data <- paste0("Please enter a numeric value under Xmz")
+        return(paste0("Please enter a numeric value under Xmz"))
+      }
+    }
+  }
+  if (!input$apply_trace_correction == "Apatite saturation") {
+    if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
+      return(paste0("Error: Kd file not found at ", paste0(gsub("/code", "/data", getwd()), "/", input$kd_file)))
+    }
+  }
+  if (any(is.na(input$trace_elements)) || is.null(input$trace_elements) || input$trace_elements == "") {
+    # reactive_message$data <- paste0("You have selected Partition traces above solidus, but have not selected any trace elements.")
+    return(paste0("You have selected Partition traces above solidus, but have not selected any trace elements."))
+  }
+  saturation_input <- ""
+  if (input$apply_trace_correction == "Apatite saturation") {
+    saturation_input <- paste0(
+      saturation_input,
+      "apatite_saturation_Ap<-", pasteq(input$apatite_saturation_Ap), "\n"
+    )
+  }
+  if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
+    if (!exists_and_numeric(input$D_ApMelt_LREE)) {
+      return(paste0("Error: Please enter a numeric value under D Ap/Melt LREE"))
+    }
+    if (!exists_and_numeric(input$Xmz)) {
+      return(paste0("Error: Please enter a numeric value under Xmz"))
+    }
+    saturation_input <- paste0(
+      saturation_input,
+      "apatite_saturation_ApMnz<-", pasteq(input$apatite_saturation_ApMnz), "\n",
+      "Xmz<-", paste0(input$Xmz), "\n",
+      "D_ApMelt_LREE<-", paste0(input$D_ApMelt_LREE), "\n"
+    )
+  }
+  return(saturation_input)
+}
+check_ph_add_def <- function(input) {
+  if (!input$n_ph_add_def == "") {
+    # Error validation
+    if (is.na(suppressWarnings(as.numeric(input$n_ph_add_def)))) {
+      return("Error: Number of Phase Addition definitions must be numeric")
+    }
+    if (as.numeric(input$n_ph_add_def) < 1) {
+      return("Error: Number of Phase Addition definitions must be greater than 0")
+    }
+    if (!as.numeric(input$n_ph_add_def) %% 1 == 0) {
+      return("Error: Number of Phase Addition definitions must be a whole number")
+    }
+    list_ph_add <- NULL
+    for (i in 1:as.numeric(input$n_ph_add_def)) {
+      ph_add_defs <- NULL
+      # check tuples
+      from <- check_tuple(eval(parse(text = paste0("input$ph_add_from_", i))))
+      if (!from[[1]] == "Valid tuple") {
+        return(paste0("Error in Phase Addition Definition:     ", from[[1]]))
+      }
+      to <- check_tuple(eval(parse(text = paste0("input$ph_add_to_", i))))
+      if (!to[[1]] == "Valid tuple") {
+        return(paste0("Error in Phase Addition Definition:     ", to[[1]]))
+      }
+      ph_add_con <- paste0("condition=", pasteq(eval(parse(text = paste0("input$ph_add_con_", i)))))
+      phases <- unlist(strsplit(eval(parse(text = paste0("input$ph_add_phs_", i))), split = ","))
+      for (j in 1:length(phases)) {
+        ph_add_defs <- c(ph_add_defs, paste0(pasteq(phases[j]), "=", pasteq(eval(parse(text = paste0("input$ph_add_phs_", i, "_", phases[j]))))))
+      }
+      list_ph_add <- c(list_ph_add, paste0("\"", from[[2]], "_", to[[2]], "\"=c(", paste0(c(ph_add_con, ph_add_defs), collapse = ","), ")"))
+    }
+    ph_add_definitions <- paste0("list(", paste0(list_ph_add, collapse = ","), ")")
+  } else {
+    ph_add_definitions <- ""
+  }
+  return(ph_add_definitions)
+}
+check_ph_extr_def <- function(input) {
+  if (!input$n_ph_extr_def == "") {
+    # Error validation
+    if (is.na(suppressWarnings(as.numeric(input$n_ph_extr_def)))) {
+      return("Error: Number of Phase Extraction definitions must be numeric")
+    }
+    if (as.numeric(input$n_ph_extr_def) < 1) {
+      return("Error: Number of Phase Extraction definitions must be greater than 0")
+    }
+    if (!as.numeric(input$n_ph_extr_def) %% 1 == 0) {
+      return("Error: Number of Phase Extraction definitions must be a whole number")
+    }
+    list_ph_extr <- NULL
+    for (i in 1:as.numeric(input$n_ph_extr_def)) {
+      ph_extr_defs <- NULL
+      # check tuples
+      from <- check_tuple(eval(parse(text = paste0("input$ph_extr_from_", i))))
+      if (!from[[1]] == "Valid tuple") {
+        return(paste0("Error in Phase Extraction Definition:     ", from[[1]]))
+      }
+      to <- check_tuple(eval(parse(text = paste0("input$ph_extr_to_", i))))
+      if (!to[[1]] == "Valid tuple") {
+        return(paste0("Error in Phase Extraction Definition:     ", to[[1]]))
+      }
+      ph_extr_con <- paste0("condition=", pasteq(eval(parse(text = paste0("input$ph_extr_con_", i)))))
+      # seperate on quotes then on comma
+      phases <- gsub('"', "", break_on_comma(eval(parse(text = paste0("input$ph_extr_phs_", i)))))
+      for (j in 1:length(phases)) {
+        ph_extr_defs <- c(
+          ph_extr_defs,
+          paste0(
+            pasteq(phases[j]),
+            "=",
+            pasteq(eval(parse(text = paste0("input$", '\"', "ph_extr_phs_", i, "_", sub_brackets(phases[j]), '\"'))))
+          )
+        )
+      }
+      list_ph_extr <- c(
+        list_ph_extr,
+        paste0(
+          "\"", from[[2]], "_", to[[2]],
+          "\"=c(",
+          paste0(c(ph_extr_con, ph_extr_defs), collapse = ","),
+          ")"
+        )
+      )
+    }
+    ph_extr_definitions <- paste0("list(", paste0(list_ph_extr, collapse = ","), ")")
+  } else {
+    ph_extr_definitions <- ""
+  }
+  return(ph_extr_definitions)
+}
+# loads component packet inputs
+load_component_packet <- function(cp_components_r, cp_phases_r) {
+  if (!all(cp_components_r == "")) {
+    list_cp_isolate <- NULL
+    cp_phases_combine <- NULL
+    for (i in 1:length(cp_components_r)) {
+      cp_phases_defs <- NULL
+      # stores components and amounts to isolate from each
+      list_cp_isolate <- c(list_cp_isolate, paste0("\"", names(cp_components_r[i]), "\"=\"", cp_components_r[i], "\""))
+      # phases to partition component into
+      for (j in 1:length(cp_phases_r[[i]])) {
+        # phases and corresponding values
+        cp_phases_defs <- c(cp_phases_defs, paste0(pasteq(names(cp_phases_r[[i]][j])), "=", pasteq(cp_phases_r[[i]][j])))
+      }
+      # stores phases and amounts with respective components as cp_phases_[component]
+      if (i > 1) {
+        cp_phases_combine <- c(
+          cp_phases_combine, "\n",
+          paste0(
+            "cp_phases_",
+            names(cp_components_r[i]),
+            "<-c(",
+            paste0(cp_phases_defs, collapse = ","),
+            ")"
+          )
+        )
+      } else {
+        cp_phases_combine <- c(
+          cp_phases_combine,
+          paste0("cp_phases_", names(cp_components_r[i]), "<-c(", paste0(cp_phases_defs, collapse = ","), ")")
+        )
+      }
+    }
+    # combined into a string to store in text file
+    cp_packet_definitions <- paste0(cp_phases_combine, collapse = "")
+    list_cp_isolate <- paste0(list_cp_isolate, collapse = ",")
+  } else {
+    cp_packet_definitions <- "cp_phases_<-c(\"\")"
+    list_cp_isolate <- ""
+  }
+  return(list(cp_packet_definitions, list_cp_isolate))
+}
+get_component_packet_inputs <- function(input, available_components_r) {
+  list_cp_isolate <- NULL
+  cp_phases_combine <- NULL
+  packet_components <- c(break_on_comma(input$cp_components))
+  for (i in 1:as.numeric(length(packet_components))) {
+    cp_phases_defs <- NULL
+    # stores components and amounts to isolate from each
+    list_cp_isolate <- c(
+      list_cp_isolate,
+      paste0("\"", packet_components[i], "\"=\"", eval(parse(text = paste0("input$cp_isolate_", i))), "\"")
+    )
+    # phases to partition component into
+    phases <- gsub('"', "", break_on_comma(eval(parse(text = paste0("input$cp_phases_", i)))))
+    for (j in 1:length(phases)) {
+      # phases and corresponding values
+      cp_phases_defs <- c(
+        cp_phases_defs,
+        paste0(
+          pasteq(phases[j]),
+          "=",
+          pasteq(eval(parse(text = paste0("input$", '\"', "cp_phases_", i, "_", sub_brackets(phases[j]), '\"'))))
+        )
+      )
+    }
+    # stores phases and amounts with respective components as cp_phases_[component]
+    if (i > 1) {
+      cp_phases_combine <- c(
+        cp_phases_combine,
+        "\n",
+        paste0(
+          "cp_phases_",
+          packet_components[i],
+          "<-c(",
+          paste0(cp_phases_defs, collapse = ","),
+          ")"
+        )
+      )
+    } else {
+      cp_phases_combine <- c(
+        cp_phases_combine,
+        paste0(
+          "cp_phases_",
+          packet_components[i],
+          "<-c(",
+          paste0(cp_phases_defs, collapse = ","),
+          ")"
+        )
+      )
+    }
+  }
+  # combined into a string to store in text file
+  cp_packet_definitions <- paste0(cp_phases_combine, collapse = "")
+  list_cp_isolate <- paste0(list_cp_isolate, collapse = ",")
+  # checking for new components added by component packet, not important for ui, important for running
+  # Mod-tag: tried to make it only show up in text file when component created, but problem with components remaining loaded in workspace
+  new_components <- "\nnew_components<-c(\""
+  count_new_cp <- 0
+  for (i in 1:length(packet_components)) {
+    if (is.na(match(packet_components[i], available_components_r))) {
+      count_new_cp <- count_new_cp + 1
+      if (count_new_cp > 1) {
+        new_components <- paste0(new_components, "\",\"", packet_components[i])
+      } else {
+        new_components <- paste0(new_components, packet_components[i])
+      }
+    }
+  }
+  cp_packet_definitions <- paste0(cp_packet_definitions, new_components, "\")")
+  return(list(cp_packet_definitions, list_cp_isolate))
+}
+check_phases_to_rename <- function(input) {
+  if (!input$n_phases_to_rename == "") {
+    # Error validation
+    if (is.na(suppressWarnings(as.numeric(input$n_phases_to_rename)))) {
+      return("Error: Number of phases to rename must be numeric")
+    }
+    if (as.numeric(input$n_phases_to_rename) < 1) {
+      return("Error: Number of phases to rename must be greater than 0")
+    }
+    if (!as.numeric(input$n_phases_to_rename) %% 1 == 0) {
+      return("Error: Number of phases to rename must be a whole number")
+    }
+    list_phases_to_rename <- NULL
+    for (i in 1:as.numeric(input$n_phases_to_rename)) {
+      list_phases_to_rename <- c(list_phases_to_rename, paste0("\"", eval(parse(text = paste0("input$old_name_", i))), "~", eval(parse(text = paste0("input$new_name_", i))), "\"=c(", pasteq(eval(parse(text = paste0("input$condition_", i)))), ")"))
+    }
+    phases_to_rename <- paste0("list(", paste0(list_phases_to_rename, collapse = ","), ")")
+  } else {
+    phases_to_rename <- ""
+  }
+  return(phases_to_rename)
 }
 # function-def:bl(x)
 # blank function : returns a value or quotes "" if blank
@@ -645,7 +1053,6 @@ shinyServer(function(input, output, session) {
   keep_on_load <<- c("from_clear_button", "from_copy", "first_load")
   from_clear_button <<- FALSE
   from_copy <<- FALSE
-  # Sean-tag
   # Reactive variables (globally accessed)
   # Reactive stores
   pt_definitions_r <- reactiveValues(data = "")
@@ -715,38 +1122,23 @@ shinyServer(function(input, output, session) {
     reactive_message$data <- error_handling(working_file, projects_directory)
     if (reactive_message$data == "error handling passed") {
       # if error handling is passed
+      # Check basic GUI inputs
+      reactive_message$data <- check_inputs(input)
+      if (length(grep("Error", reactive_message$data)) != 0) {
+        return(reactive_message$data)
+      }
+      # Start building the save file
       w_file <- paste0(
         "###############\n#\n#   Rcrust input file\n#\n###############\n# Location of project files\n",
         "working_file<-", pasteq(working_file), "\n",
         "projects_directory<-", pasteq(projects_directory), "\n"
       )
-      if (!input$x_n == "") {
-        if (is.na(suppressWarnings(as.numeric(input$x_n)))) {
-          return("Error: X must be numeric")
-        }
-        if (as.numeric(input$x_n) < 1) {
-          return("Error: X must be greater than 1")
-        }
-        if (!as.numeric(input$x_n) %% 1 == 0) {
-          return("Error: X must be a whole number")
-        }
-      }
-      if (!input$y_n == "") {
-        if (is.na(suppressWarnings(as.numeric(input$y_n)))) {
-          return("Error: Y must be numeric")
-        }
-        if (as.numeric(input$y_n) < 1) {
-          return("Error: Y must be greater than 1")
-        }
-        if (!as.numeric(input$y_n) %% 1 == 0) {
-          return("Error: Y must be a whole number")
-        }
-      }
       w_size <- paste0(
         "###############\n#\n#   Size data\n#\n###############\n# number of points in x and y directions\n",
         "x_n<-", bl(input$x_n), "\n",
         "y_n<-", bl(input$y_n), "\n"
       )
+      # Create pt_definitions
       if (input$n_pt_def == "load") {
         if (!all(pt_definitions_r$data == "")) {
           list_pt <- NULL
@@ -758,42 +1150,9 @@ shinyServer(function(input, output, session) {
           pt_definitions <- ""
         }
       } else {
-        if (!input$n_pt_def == "") {
-          # Error validation
-          if (is.na(suppressWarnings(as.numeric(input$n_pt_def)))) {
-            return("Error: Number of PT definitions must be numeric")
-          }
-          if (as.numeric(input$n_pt_def) < 1) {
-            return("Error: Number of PT definitions must be greater than 0")
-          }
-          if (!as.numeric(input$n_pt_def) %% 1 == 0) {
-            return("Error: Number of PT definitions must be a whole number")
-          }
-          list_pt <- NULL
-          for (i in 1:as.numeric(input$n_pt_def)) {
-            # check tuples
-            from <- check_tuple(eval(parse(text = paste0("input$pt_from_", i))))
-            if (!from[[1]] == "Valid tuple") {
-              return(paste0("Error in PT Definition:     ", from[[1]]))
-            }
-            to <- check_tuple(eval(parse(text = paste0("input$pt_to_", i))))
-            if (!to[[1]] == "Valid tuple") {
-              return(paste0("Error in PT Definition:     ", to[[1]]))
-            }
-            list_pt <- c(
-              list_pt,
-              paste0(
-                "\"", from[[2]], "_", to[[2]], "\"=c(",
-                pasteq(eval(parse(text = paste0("input$pressure_", i)))),
-                ",",
-                pasteq(eval(parse(text = paste0("input$temperature_", i)))),
-                ")"
-              )
-            )
-          }
-          pt_definitions <- paste0("list(", paste0(list_pt, collapse = ","), ")")
-        } else {
-          pt_definitions <- ""
+        pt_definitions <- paste0(check_pt_def(input))
+        if (length(grep("Error", pt_definitions)) != 0) {
+          return(pt_definitions)
         }
       }
       w_pt <- paste0(
@@ -801,6 +1160,7 @@ shinyServer(function(input, output, session) {
         "pt_def<-\"input\"                         #input,file\n",
         "pt_definitions<-", bl(pt_definitions), "\n"
       )
+      # component transformations
       if (input$n_comp_trans == "load") {
         if (!all(comp_transformations_r$data == "")) {
           list_trans <- NULL
@@ -812,26 +1172,12 @@ shinyServer(function(input, output, session) {
           comp_transformations <- ""
         }
       } else {
-        if (!input$n_comp_trans == "") {
-          # Error validation
-          if (is.na(suppressWarnings(as.numeric(input$n_comp_trans)))) {
-            return("Error: Number of Component transformations must be numeric")
-          }
-          if (as.numeric(input$n_comp_trans) < 1) {
-            return("Error: Number of Component transformations must be greater than 0")
-          }
-          if (!as.numeric(input$n_comp_trans) %% 1 == 0) {
-            return("Error: Number of Component transformations must be a whole number")
-          }
-          list_trans <- NULL
-          for (i in 1:as.numeric(input$n_comp_trans)) {
-            list_trans <- c(list_trans, paste0("\"", eval(parse(text = paste0("input$old_comp_", i))), "_", eval(parse(text = paste0("input$new_comp_", i))), "\"=c(", pasteq(eval(parse(text = paste0("input$comp_", i)))), ")"))
-          }
-          comp_transformations <- paste0("list(", paste0(list_trans, collapse = ","), ")")
-        } else {
-          comp_transformations <- ""
+        comp_transformations <- check_comp_trans(input)
+        if (length(grep("Error", comp_transformations)) != 0) {
+          return(comp_transformations)
         }
       }
+      # bulk definitions
       if (input$n_bulk_def == "load") {
         if (!all(bulk_definitions_r$data == "")) {
           list_bulk <- NULL
@@ -843,40 +1189,12 @@ shinyServer(function(input, output, session) {
           bulk_definitions <- ""
         }
       } else {
-        if (!input$n_bulk_def == "") {
-          # Error validation
-          if (is.na(suppressWarnings(as.numeric(input$n_bulk_def)))) {
-            return("Error: Number of Bulk definitions must be numeric")
-          }
-          if (as.numeric(input$n_bulk_def) < 1) {
-            return("Error: Number of Bulk definitions must be greater than 0")
-          }
-          if (!as.numeric(input$n_bulk_def) %% 1 == 0) {
-            return("Error: Number of Bulk definitions must be a whole number")
-          }
-          list_bulk <- NULL
-          for (i in 1:as.numeric(input$n_bulk_def)) {
-            # check tuples
-            from <- check_tuple(eval(parse(text = paste0("input$bulk_from_", i))))
-            if (!from[[1]] == "Valid tuple") {
-              return(paste0("Error in Bulk Definition:     ", from[[1]]))
-            }
-            to <- check_tuple(eval(parse(text = paste0("input$bulk_to_", i))))
-            if (!to[[1]] == "Valid tuple") {
-              return(paste0("Error in Bulk Definition:     ", to[[1]]))
-            }
-            bulk_eval <- strsplit(eval(parse(text = paste0("input$bulk_", i))), split = ",")[[1]]
-            # place in quotes
-            for (j in 1:length(bulk_eval)) {
-              bulk_eval[j] <- pasteq(bulk_eval[j])
-            }
-            list_bulk <- c(list_bulk, paste0("\"", from[[2]], "_", to[[2]], "\"=c(", paste(bulk_eval, collapse = ","), ")"))
-          }
-          bulk_definitions <- paste0("list(", paste0(list_bulk, collapse = ","), ")")
-        } else {
-          bulk_definitions <- ""
+        bulk_definitions <- check_bulk_def(input)
+        if (length(grep("Error", bulk_definitions)) != 0) {
+          return(bulk_definitions)
         }
       }
+      # major elements
       if (!is.null(input$major_elements)) {
         if (any(input$major_elements == "load")) {
           major_elements <- major_elements_r$data
@@ -886,6 +1204,7 @@ shinyServer(function(input, output, session) {
       } else {
         major_elements <- ""
       }
+      # trace elements
       if (!is.null(input$trace_elements)) {
         if (any(input$trace_elements == "load")) {
           trace_elements <- trace_elements_r$data
@@ -895,6 +1214,7 @@ shinyServer(function(input, output, session) {
       } else {
         trace_elements <- ""
       }
+      # Accessory phase saturation
       if (input$Xmz == "" || is.null(input$Xmz)) {
         Xmz <- 0.83
       } else {
@@ -902,37 +1222,12 @@ shinyServer(function(input, output, session) {
       }
       saturation_input <- ""
       if (input$calculate_traces) {
-        if (input$apply_trace_correction == "Apatite saturation") {
-          saturation_input <- paste0(
-            saturation_input,
-            "apatite_saturation_Ap<-", pasteq(input$apatite_saturation_Ap), "\n"
-          )
-        }
-        if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
-          if (!exists_and_numeric(input$D_ApMelt_LREE)) {
-            reactive_message$data <- paste0("Please enter a numeric value under D Ap/Melt LREE")
-            return(reactive_message$data)
-          }
-          if (!exists_and_numeric(input$Xmz)) {
-            reactive_message$data <- paste0("Please enter a numeric value under Xmz")
-            return(reactive_message$data)
-          }
-          saturation_input <- paste0(
-            saturation_input,
-            "apatite_saturation_ApMnz<-", pasteq(input$apatite_saturation_ApMnz), "\n",
-            "Xmz<-", paste0(input$Xmz), "\n",
-            "D_ApMelt_LREE<-", paste0(input$D_ApMelt_LREE), "\n"
-          )
+        saturation_input <- check_traces(input)
+        if (length(grep("Error", saturation_input)) != 0) {
+          return(saturation_input)
         }
       }
       all_elements <- c(major_elements, trace_elements)
-      if (input$calculate_traces) {
-        if (!input$apply_trace_correction == "Apatite saturation") {
-          if (!file.exists(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file))) {
-            return(paste0("Error: Kd file not found at ", paste0(gsub("/code", "/data", getwd()), "/", input$kd_file)))
-          }
-        }
-      }
       if (input$bulk_def_file == FALSE) {
         bulk_def <- "input"
       } else {
@@ -952,6 +1247,7 @@ shinyServer(function(input, output, session) {
         "bulk_definitions<-c(", bl(bulk_definitions), ")\n",
         "bulk_file<-", pasteq(input$bulk_file), "\n"
       )
+      # phase additions
       if (input$ph_add) {
         if (input$n_ph_add_def == "load") {
           if (!all(ph_add_definitions_r$data == "")) {
@@ -966,39 +1262,9 @@ shinyServer(function(input, output, session) {
             ph_add_definitions <- ""
           }
         } else {
-          if (!input$n_ph_add_def == "") {
-            # Error validation
-            if (is.na(suppressWarnings(as.numeric(input$n_ph_add_def)))) {
-              return("Error: Number of Phase Addition definitions must be numeric")
-            }
-            if (as.numeric(input$n_ph_add_def) < 1) {
-              return("Error: Number of Phase Addition definitions must be greater than 0")
-            }
-            if (!as.numeric(input$n_ph_add_def) %% 1 == 0) {
-              return("Error: Number of Phase Addition definitions must be a whole number")
-            }
-            list_ph_add <- NULL
-            for (i in 1:as.numeric(input$n_ph_add_def)) {
-              ph_add_defs <- NULL
-              # check tuples
-              from <- check_tuple(eval(parse(text = paste0("input$ph_add_from_", i))))
-              if (!from[[1]] == "Valid tuple") {
-                return(paste0("Error in Phase Addition Definition:     ", from[[1]]))
-              }
-              to <- check_tuple(eval(parse(text = paste0("input$ph_add_to_", i))))
-              if (!to[[1]] == "Valid tuple") {
-                return(paste0("Error in Phase Addition Definition:     ", to[[1]]))
-              }
-              ph_add_con <- paste0("condition=", pasteq(eval(parse(text = paste0("input$ph_add_con_", i)))))
-              phases <- unlist(strsplit(eval(parse(text = paste0("input$ph_add_phs_", i))), split = ","))
-              for (j in 1:length(phases)) {
-                ph_add_defs <- c(ph_add_defs, paste0(pasteq(phases[j]), "=", pasteq(eval(parse(text = paste0("input$ph_add_phs_", i, "_", phases[j]))))))
-              }
-              list_ph_add <- c(list_ph_add, paste0("\"", from[[2]], "_", to[[2]], "\"=c(", paste0(c(ph_add_con, ph_add_defs), collapse = ","), ")"))
-            }
-            ph_add_definitions <- paste0("list(", paste0(list_ph_add, collapse = ","), ")")
-          } else {
-            ph_add_definitions <- ""
+          ph_add_definitions <- check_ph_add_def(input)
+          if (length(grep("Error", ph_add_definitions)) != 0) {
+            return(ph_add_definitions)
           }
         }
       } else {
@@ -1009,6 +1275,7 @@ shinyServer(function(input, output, session) {
         "ph_add<-", input$ph_add, "\n",
         "ph_add_definitions<-c(", bl(ph_add_definitions), ")\n"
       )
+      # phase extractions
       if (input$ph_extr) {
         if (input$n_ph_extr_def == "load") {
           if (!all(ph_extr_definitions_r$data == "")) {
@@ -1023,55 +1290,9 @@ shinyServer(function(input, output, session) {
             ph_extr_definitions <- ""
           }
         } else {
-          if (!input$n_ph_extr_def == "") {
-            # Error validation
-            if (is.na(suppressWarnings(as.numeric(input$n_ph_extr_def)))) {
-              return("Error: Number of Phase Extraction definitions must be numeric")
-            }
-            if (as.numeric(input$n_ph_extr_def) < 1) {
-              return("Error: Number of Phase Extraction definitions must be greater than 0")
-            }
-            if (!as.numeric(input$n_ph_extr_def) %% 1 == 0) {
-              return("Error: Number of Phase Extraction definitions must be a whole number")
-            }
-            list_ph_extr <- NULL
-            for (i in 1:as.numeric(input$n_ph_extr_def)) {
-              ph_extr_defs <- NULL
-              # check tuples
-              from <- check_tuple(eval(parse(text = paste0("input$ph_extr_from_", i))))
-              if (!from[[1]] == "Valid tuple") {
-                return(paste0("Error in Phase Extraction Definition:     ", from[[1]]))
-              }
-              to <- check_tuple(eval(parse(text = paste0("input$ph_extr_to_", i))))
-              if (!to[[1]] == "Valid tuple") {
-                return(paste0("Error in Phase Extraction Definition:     ", to[[1]]))
-              }
-              ph_extr_con <- paste0("condition=", pasteq(eval(parse(text = paste0("input$ph_extr_con_", i)))))
-              # seperate on quotes then on comma
-              phases <- gsub('"', "", break_on_comma(eval(parse(text = paste0("input$ph_extr_phs_", i)))))
-              for (j in 1:length(phases)) {
-                ph_extr_defs <- c(
-                  ph_extr_defs,
-                  paste0(
-                    pasteq(phases[j]),
-                    "=",
-                    pasteq(eval(parse(text = paste0("input$", '\"', "ph_extr_phs_", i, "_", sub_brackets(phases[j]), '\"'))))
-                  )
-                )
-              }
-              list_ph_extr <- c(
-                list_ph_extr,
-                paste0(
-                  "\"", from[[2]], "_", to[[2]],
-                  "\"=c(",
-                  paste0(c(ph_extr_con, ph_extr_defs), collapse = ","),
-                  ")"
-                )
-              )
-            }
-            ph_extr_definitions <- paste0("list(", paste0(list_ph_extr, collapse = ","), ")")
-          } else {
-            ph_extr_definitions <- ""
+          ph_extr_definitions <- check_ph_extr_def(input)
+          if (length(grep("Error", ph_extr_definitions)) != 0) {
+            return(ph_extr_definitions)
           }
         }
       } else {
@@ -1083,128 +1304,19 @@ shinyServer(function(input, output, session) {
         "reequilibrate_steps<-", input$reequilibrate_steps, "\n",
         "ph_extr_definitions<-c(", bl(ph_extr_definitions), ")\n"
       )
-      # Sean-tag
+      # component packet
       if (input$component_packet) {
         if (input$cp_components == "load") {
-          if (!all(cp_components_r$data == "")) {
-            list_cp_isolate <- NULL
-            cp_phases_combine <- NULL
-            for (i in 1:length(cp_components_r$data)) {
-              cp_phases_defs <- NULL
-              # stores components and amounts to isolate from each
-              list_cp_isolate <- c(list_cp_isolate, paste0("\"", names(cp_components_r$data[i]), "\"=\"", cp_components_r$data[i], "\""))
-              # phases to partition component into
-              for (j in 1:length(cp_phases_r$data[[i]])) {
-                # phases and corresponding values
-                cp_phases_defs <- c(cp_phases_defs, paste0(pasteq(names(cp_phases_r$data[[i]][j])), "=", pasteq(cp_phases_r$data[[i]][j])))
-              }
-              # stores phases and amounts with respective components as cp_phases_[component]
-              if (i > 1) {
-                cp_phases_combine <- c(
-                  cp_phases_combine, "\n",
-                  paste0(
-                    "cp_phases_",
-                    names(cp_components_r$data[i]),
-                    "<-c(",
-                    paste0(cp_phases_defs, collapse = ","),
-                    ")"
-                  )
-                )
-              } else {
-                cp_phases_combine <- c(
-                  cp_phases_combine,
-                  paste0(
-                    "cp_phases_",
-                    names(cp_components_r$data[i]),
-                    "<-c(",
-                    paste0(cp_phases_defs, collapse = ","),
-                    ")"
-                  )
-                )
-              }
-            }
-            # combined into a string to store in text file
-            cp_packet_definitions <- paste0(cp_phases_combine, collapse = "")
-            list_cp_isolate <- paste0(list_cp_isolate, collapse = ",")
-          } else {
-            cp_packet_definitions <- "cp_phases_<-c(\"\")"
-            list_cp_isolate <- ""
-          }
+          # load inputs and store
+          cp_loaded <- load_component_packet(cp_components_r$data, cp_phases_r$data)
+          cp_packet_definitions <- cp_loaded[[1]]
+          list_cp_isolate <- cp_loaded[[2]]
         } else {
           if (!isTRUE(input$cp_components == "")) {
-            list_cp_isolate <- NULL
-            cp_phases_combine <- NULL
-            packet_components <- c(break_on_comma(input$cp_components))
-            for (i in 1:as.numeric(length(packet_components))) {
-              cp_phases_defs <- NULL
-              # stores components and amounts to isolate from each
-              list_cp_isolate <- c(
-                list_cp_isolate,
-                paste0(
-                  "\"",
-                  packet_components[i],
-                  "\"=\"",
-                  eval(parse(text = paste0("input$cp_isolate_", i))),
-                  "\""
-                )
-              )
-              # phases to partition component into
-              phases <- gsub('"', "", break_on_comma(eval(parse(text = paste0("input$cp_phases_", i)))))
-              for (j in 1:length(phases)) {
-                # phases and corresponding values
-                cp_phases_defs <- c(
-                  cp_phases_defs,
-                  paste0(
-                    pasteq(phases[j]),
-                    "=",
-                    pasteq(eval(parse(text = paste0("input$", '\"', "cp_phases_", i, "_", sub_brackets(phases[j]), '\"'))))
-                  )
-                )
-              }
-              # stores phases and amounts with respective components as cp_phases_[component]
-              if (i > 1) {
-                cp_phases_combine <- c(
-                  cp_phases_combine,
-                  "\n",
-                  paste0(
-                    "cp_phases_",
-                    packet_components[i],
-                    "<-c(",
-                    paste0(cp_phases_defs, collapse = ","),
-                    ")"
-                  )
-                )
-              } else {
-                cp_phases_combine <- c(
-                  cp_phases_combine,
-                  paste0(
-                    "cp_phases_",
-                    packet_components[i],
-                    "<-c(",
-                    paste0(cp_phases_defs, collapse = ","),
-                    ")"
-                  )
-                )
-              }
-            }
-            # combined into a string to store in text file
-            cp_packet_definitions <- paste0(cp_phases_combine, collapse = "")
-            list_cp_isolate <- paste0(list_cp_isolate, collapse = ",")
-            # checking for new components added by component packet, not important for ui, important for running
-            # Mod-tag: tried to make it only show up in text file when component created, but problem with components remaining loaded in workspace
-            new_components <- "\nnew_components<-c(\""
-            count_new_cp <- 0
-            for (i in 1:length(packet_components)) {
-              if (is.na(match(packet_components[i], available_components_r$current))) {
-                count_new_cp <- count_new_cp + 1
-                if (count_new_cp > 1) {
-                  new_components <- paste0(new_components, "\",\"", packet_components[i])
-                } else {
-                  new_components <- paste0(new_components, packet_components[i])
-                }
-              }
-            }
-            cp_packet_definitions <- paste0(cp_packet_definitions, new_components, "\")")
+            # save inputs
+            cp_loaded <- get_component_packet_inputs(input, available_components_r$current)
+            cp_packet_definitions <- cp_loaded[[1]]
+            list_cp_isolate <- cp_loaded[[2]]
           } else {
             cp_packet_definitions <- "cp_phases_<-c(\"\")"
             list_cp_isolate <- ""
@@ -1220,7 +1332,8 @@ shinyServer(function(input, output, session) {
         "component_packet<-", input$component_packet, "\n",
         "cp_components<-c(", bl(list_cp_isolate), ")\n",
         bl(cp_packet_definitions), "\n"
-      ) # End of component packet
+      )
+      # phase renaming
       if (input$n_phases_to_rename == "load") {
         if (!all(phases_to_rename_r$data == "")) {
           list_phases_to_rename <- NULL
@@ -1232,27 +1345,11 @@ shinyServer(function(input, output, session) {
           phases_to_rename <- ""
         }
       } else {
-        if (!input$n_phases_to_rename == "") {
-          # Error validation
-          if (is.na(suppressWarnings(as.numeric(input$n_phases_to_rename)))) {
-            return("Error: Number of phases to rename must be numeric")
-          }
-          if (as.numeric(input$n_phases_to_rename) < 1) {
-            return("Error: Number of phases to rename must be greater than 0")
-          }
-          if (!as.numeric(input$n_phases_to_rename) %% 1 == 0) {
-            return("Error: Number of phases to rename must be a whole number")
-          }
-          list_phases_to_rename <- NULL
-          for (i in 1:as.numeric(input$n_phases_to_rename)) {
-            list_phases_to_rename <- c(list_phases_to_rename, paste0("\"", eval(parse(text = paste0("input$old_name_", i))), "~", eval(parse(text = paste0("input$new_name_", i))), "\"=c(", pasteq(eval(parse(text = paste0("input$condition_", i)))), ")"))
-          }
-          phases_to_rename <- paste0("list(", paste0(list_phases_to_rename, collapse = ","), ")")
-        } else {
-          phases_to_rename <- ""
+        phases_to_rename <- check_phases_to_rename(input)
+        if (length(grep("Error", phases_to_rename)) != 0) {
+          return(phases_to_rename)
         }
       }
-
       if (input$solution_models_file == "load") {
         if (!exists("solution_models_file")) {
           solution_models_file <- ""
@@ -1293,7 +1390,6 @@ shinyServer(function(input, output, session) {
         "compile_PAM<-", pasteq(input$compile_PAM), "\n"
       )
       # Compile all tabs into a page
-      # Sean-tag
       thepage <- c(
         w_file,
         w_size,
@@ -1357,7 +1453,6 @@ shinyServer(function(input, output, session) {
       # fix-tag - have to remove major elements here to allow load, must fix this
       rm("major_elements", inherits = TRUE)
       rm(list = setdiff(ls(envir = .GlobalEnv), c("keep_on_load", keep_on_load)), envir = .GlobalEnv)
-      # Sean-tag
       # clear reactive stores
       pt_definitions_r$data <- NULL
       bulk_definitions_r$data <- NULL
@@ -1373,7 +1468,6 @@ shinyServer(function(input, output, session) {
         source(paste0(input$projects_directory, "/", input$working_file, "/Inputs/", input$working_file, ".txt"))
       }
       # Values to load
-      # Sean-tag
       load_variables <- c(
         "x_n" = "inp",
         "y_n" = "inp",
@@ -1436,7 +1530,6 @@ shinyServer(function(input, output, session) {
       if (exists("ph_extr_definitions")) {
         ph_extr_definitions_r$data <- ph_extr_definitions
       }
-      # Sean-tag
       if (exists("cp_components")) {
         cp_components_r$data <- cp_components
         cp_phases_r$data <- list()
@@ -1604,45 +1697,31 @@ shinyServer(function(input, output, session) {
     cat("To regain access to the Rcrust GUI type \'c\' then press enter\n")
     browser()
   })
+  check_root <- function(proj_directory) {
+    if (!length(unlist(gregexpr("[/]", proj_directory))) == 2) {
+      showModal(modalDialog(
+        tags$p(paste0(
+          "Warning Rcrust is not located in a root directory. Your project is located in ",
+          proj_directory, "."
+        )),
+        tags$p(paste0("This should be e.g. C:/Rcrust/ or D:/Rcrust. Please relocate Rcrust to a root directory.")),
+        footer = tagList(
+          modalButton("OK")
+        )
+      ))
+    }
+  }
   # Run Button
   observeEvent(input$run, {
     # Grab working file and projects directory
     working_file <- input$working_file
     projects_directory <- input$projects_directory
+    # check for project root directory. (Displays slightly annoying popup)
+    check_root(projects_directory)
     # error handling
     reactive_message$data <- error_handling(working_file, projects_directory)
     if (reactive_message$data == "error handling passed") {
       # if error handling is passed
-      # GUI level validation check that have at least minimum of P,T,and X definitions in GUI
-      var_missing <- NULL
-      chk_variables <- c("input$x_n", "input$y_n", "input$n_pt_def", "input$n_bulk_def", "input$major_elements")
-      for (i in rev(chk_variables)) {
-        if (any(eval(parse(text = i)) == "")) {
-          var_missing <- i
-        }
-      }
-      if (!is.null(var_missing)) {
-        reactive_message$data <- paste0("Error: Cannot run calculation. Missing ", var_missing)
-        return(reactive_message$data)
-        # Check that P2O5 selected for certain saturation corrections.
-      } else if (input$calculate_traces == TRUE) {
-        if (input$apply_trace_correction == "Apatite saturation" || input$apply_trace_correction == "Apatite & Monazite Saturation") {
-          if (!any(input$trace_elements == "P2O5")) {
-            reactive_message$data <- paste0("P2O5 not selected under trace elements for saturation corrections")
-            return(reactive_message$data)
-          }
-          if (input$apply_trace_correction == "Apatite & Monazite Saturation") {
-            if (!exists_and_numeric(input$D_ApMelt_LREE)) {
-              reactive_message$data <- paste0("Please enter a numeric value under D Ap/Melt LREE")
-              return(reactive_message$data)
-            }
-            if (!exists_and_numeric(input$Xmz)) {
-              reactive_message$data <- paste0("Please enter a numeric value under Xmz")
-              return(reactive_message$data)
-            }
-          }
-        }
-      }
       # Save
       reactive_message$data <- paste0(on_save())
       # source the saved variables into the workspace
@@ -1952,7 +2031,6 @@ shinyServer(function(input, output, session) {
     }
     current_components_r$data <- current_components
   })
-  # Sean-tag
   # Observe component packet
   # if component is not available_components_r$current then adds to current_components_r$data
   observe({
@@ -2034,7 +2112,6 @@ shinyServer(function(input, output, session) {
       } else {
         traces_message$data <- paste0("")
         traces_file <- colnames(read.table(paste0(gsub("/code", "/data", getwd()), "/", input$kd_file), sep = "\t"))
-
       }
     }
     # When Apatite saturation is selected, the trace elements input field has P2O5 as option.
@@ -2058,23 +2135,23 @@ shinyServer(function(input, output, session) {
     }
     if (any(input$trace_elements == "load")) {
       selectizeInput("trace_elements", "Trace elements",
-                     c(
-                       trace_elements_r$data,
-                       setdiff(traces_file, trace_elements_r$data),
-                       "load"
-                     ),
-                     selected = trace_elements_r$data,
-                     multiple = TRUE
+        c(
+          trace_elements_r$data,
+          setdiff(traces_file, trace_elements_r$data),
+          "load"
+        ),
+        selected = trace_elements_r$data,
+        multiple = TRUE
       )
     } else {
       selectizeInput("trace_elements", "Trace elements",
-                     c(
-                       input$trace_elements,
-                       setdiff(traces_file, input$trace_elements),
-                       "load"
-                     ),
-                     selected = input$trace_elements,
-                     multiple = TRUE
+        c(
+          input$trace_elements,
+          setdiff(traces_file, input$trace_elements),
+          "load"
+        ),
+        selected = input$trace_elements,
+        multiple = TRUE
       )
     }
   })
@@ -2593,7 +2670,6 @@ shinyServer(function(input, output, session) {
       }
     }
   })
-  # Sean-tag
   # Dynamically use number of component packet definitions to create the correct number of Component isolation,Phases inputs
   output$cp_packet_ui <- renderUI({
     if (input$cp_components == "load") {
@@ -3566,21 +3642,68 @@ shinyServer(function(input, output, session) {
     ),
     rownames = TRUE
   )
-  output$plot <- renderPlot(
+  output$plot <- renderPlot({
     switch(input$output_type,
       "PAM" = draw_PAM_r(),
       "Grid" = draw_Grid_r(),
       "Phase Abundance Along Path" = draw_abundance_r()
     )
-  )
+  })
   # Dyanmically create output form selections
   output$output_form_selection <- renderUI({
     form_selection <- switch(input$output_type,
       "Data File" = "Data",
-      "PAM" = c("Legend", "Plot"),
-      c("Data", "Plot")
+      "PAM" = c("Plot", "Legend"),
+      c("Plot", "Data")
     )
     radioButtons("output_form", "View", form_selection, inline = TRUE)
+  })
+  # Fix for plots disappearing.
+  # Mod-tag: Need a better way to refresh plots that has better code continuity
+  observeEvent(input$output_type, {
+    if (!is.null(input$output_form)) {
+      inputOption <- ""
+      Option1 <- ""
+      Option2 <- ""
+      unidentifiedPlot <- FALSE
+      # setting possible options
+      # You need a select input that does not re-render the plot.
+      switch(input$output_type,
+        "Grid" = {
+          inputOption <- "Grid_colours"
+          Option1 <- "gray.colors"
+          Option2 <- "heat.colors"
+        },
+        "Phase Abundance Along Path" = {
+          inputOption <- "axis"
+          Option1 <- "x"
+          Option2 <- "y"
+        },
+        "PAM" = {
+          inputOption <- "PAM_labels"
+          Option1 <- "Phases"
+          Option2 <- "Numbers"
+        },
+        unidentifiedPlot <- TRUE
+        # Template, add your new plot update.
+        # , "plotName" = {
+        # inputOption <- "inputOption"
+        # Option1 <- "Option1"
+        # Option2 <- "Option2"
+        # }
+      )
+      # This code should not need to be altered, unless the plot has no Select Input option.
+      # will not refresh if the plot has not been added to this fix function.
+      if (!unidentifiedPlot) {
+        theOption <- Option2
+        if (eval(parse(text = paste0("input$", inputOption))) == Option2) {
+          theOption <- Option1
+          Option1 <- Option2
+        }
+        eval(parse(text = paste0("updateSelectInput(session, \"", inputOption, "\", selected = \"", theOption, "\")")))
+        eval(parse(text = paste0("updateSelectInput(session, \"", inputOption, "\", selected = \"", Option1, "\")")))
+      }
+    }
   })
   # Dyanmically create output selections
   output$output_selection <- renderUI({

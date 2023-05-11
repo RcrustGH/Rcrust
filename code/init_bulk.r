@@ -10,6 +10,7 @@ if (exists("calculate_traces")) {
       # try to install GCDmodel
       install.packages(paste0(gsub("/code", "/plugins", getwd()), "/GCDmodel_0.5.02.zip"))
       if (!require(GCDmodel)) {
+        cat("Trying to copy GCDmodel files to R library.\n")
         for (i in 1:length(.libPaths())) {
           # if install was unsuccessful, try to manually place package in library/libraries
           try(
@@ -22,6 +23,8 @@ if (exists("calculate_traces")) {
           if (dir.exists(paste0(.libPaths()[[i]], "/GCDmodel"))) {
             cat("\nGCDmodel manually unpacked at ", paste0(.libPaths()[[i]], "/GCDmodel \n"))
             break
+          } else {
+            cat("Unable to copy GCDmodel to R library at ", .libPaths()[[i]], "\n")
           }
         }
       }
